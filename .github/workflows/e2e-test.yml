@@ -1,0 +1,96 @@
+name: E2E Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  e2e-test:
+    name: Run E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run E2E Tests
+        env:
+          # IMS OAuth credentials
+          IMS_CLIENT_ID: 0338c760580f4f39a989eb6032b68f85
+          IMS_CLIENT_SECRET: s8e-0w_rBNHZBRl2Pl9nFEccp6a_H0zNCmQL
+          IMS_TOKEN_URL: https://ims-na1-stg1.adobelogin.com/ims/token/v1
+          
+          # APIM endpoint
+          APIM_ENDPOINT: https://commerce-docs-dev-apim.azure-api.net
+          
+          # CI flag to use OAuth instead of aio CLI (GITHUB_ACTIONS is set automatically by GitHub)
+          CI: true
+        run: |
+          echo "🧪 Running E2E tests..."
+          npm run test:query --verbose
+
+      # - name: Upload test results
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: test-results
+      #     path: |
+      #       coverage/
+      #       test-results/
+      #     retention-days: 7
+
+      # - name: Test Summary
+      #   if: always()
+      #   run: |
+      #     echo "## 🧪 E2E Test Results" >> $GITHUB_STEP_SUMMARY
+      #     echo "" >> $GITHUB_STEP_SUMMARY
+          
+      #     if [ ${{ job.status }} == 'success' ]; then
+      #       echo "✅ All E2E tests passed!" >> $GITHUB_STEP_SUMMARY
+      #     else
+      #       echo "❌ Some tests failed. Check logs for details." >> $GITHUB_STEP_SUMMARY
+      #     fi
+          
+      #     echo "" >> $GITHUB_STEP_SUMMARY
+      #     echo "### Test Environment" >> $GITHUB_STEP_SUMMARY
+      #     echo "- **Endpoint**: $APIM_ENDPOINT" >> $GITHUB_STEP_SUMMARY
+      #     echo "- **Authentication**: OAuth Server-to-Server (IMS Stage)" >> $GITHUB_STEP_SUMMARY
+      #     echo "- **Node Version**: 20" >> $GITHUB_STEP_SUMMARY
+      #     echo "- **Test File**: e2e/query.test.js" >> $GITHUB_STEP_SUMMARY
+
+      # - name: Comment on PR
+      #   if: github.event_name == 'pull_request' && always()
+      #   uses: actions/github-script@v7
+      #   with:
+      #     script: |
+      #       const outcome = '${{ job.status }}';
+      #       const emoji = outcome === 'success' ? '✅' : '❌';
+      #       const message = `
+      #       ${emoji} **E2E Tests ${outcome}**
+      #       
+      #       - **Test File**: \`e2e/query.test.js\`
+      #       - **Run**: [View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+      #       `;
+      #       
+      #       github.rest.issues.createComment({
+      #         issue_number: context.issue.number,
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         body: message
+      #       });
+
