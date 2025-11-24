@@ -19,6 +19,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { describe, test, expect, beforeAll } from '@jest/globals';
 import { execSync } from 'child_process';
+import { ImsHelper } from '../utils/imsHelper.js';
 
 // Load environment variables
 const __filename = fileURLToPath(import.meta.url);
@@ -36,12 +37,11 @@ let VALID_IMS_TOKEN = '';
 /**
  * Get valid IMS token for testing
  * 
- * Token Sources:
- * - CI/CD: OAuth S2S (https://ims-na1-stg1.adobelogin.com/ims/token/v3)
- *   Requires: IMS_CLIENT_ID, IMS_CLIENT_SECRET from GitHub Secrets
+ * Uses ImsHelper (similar to e2e-test-suite) with token caching and expiry checking
  * 
+ * Token Sources:
+ * - CI/CD: OAuth S2S (client_credentials grant)
  * - Local: Adobe I/O CLI (aio auth login --bare)
- *   Requires: User to run 'aio auth login' first
  * 
  * Override: Set IMS_TOKEN env var to use a pre-fetched token (testing only)
  */
@@ -53,32 +53,16 @@ async function getImsToken() {
   }
 
   const isCI = process.env.GITHUB_ACTIONS;
-  const tokenURL = process.env.IMS_TOKEN_URL;
   
   if (isCI) {
-    // CI/CD: Use OAuth client_credentials
-    if (!process.env.IMS_CLIENT_ID || !process.env.IMS_CLIENT_SECRET || !tokenURL || !APIM_ENDPOINT) {
-      throw new Error('IMS_CLIENT_ID, IMS TOKEN URL, APIM_ENDPOINT and IMS_CLIENT_SECRET must be set in CI/CD or .env(in local)');
-    }
-
-    const response = await fetch(tokenURL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: process.env.IMS_CLIENT_ID,
-        client_secret: process.env.IMS_CLIENT_SECRET,
-        scope: 'openid,AdobeID'
-      })
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(`OAuth token fetch failed: ${data.error_description || JSON.stringify(data)}`);
-    }
-    return data.access_token;
+    // CI/CD: Use ImsHelper for OAuth S2S with caching
+    console.log('🔐 CI/CD environment detected - using ImsHelper for OAuth S2S');
+    const imsHelper = new ImsHelper();
+    const token = await imsHelper.getOAuthToken();
+    return token;
   } else {
     // Local: Use aio CLI
+    console.log('🔐 Local environment - using aio CLI');
     try {
       const token = execSync('aio auth login --bare', { 
         encoding: 'utf-8',
