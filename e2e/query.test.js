@@ -106,7 +106,7 @@ describe('Query Endpoint E2E Tests', () => {
 
       if (response.status === 200) {
         expect(data.success).toBe(true);
-        expect(data.query).toBe('webhooks');
+        expect(data.query).toBe('How to create webhooks?');
         expect(data.results).toBeDefined();
         expect(Array.isArray(data.results)).toBe(true);
         expect(data.results.length).toBeGreaterThan(0);
