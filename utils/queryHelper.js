@@ -6,7 +6,7 @@ import fetch from 'node-fetch';
 
 /**
  * Make a query to the RAG endpoint with flexible authentication options
- * 
+ *
  * @param {string} query - Search query
  * @param {Object} options - Optional parameters
  * @param {string|null} options.token - IMS authentication token (default: null = no auth header)
@@ -15,34 +15,34 @@ import fetch from 'node-fetch';
  * @param {string} options.indexName - Index to search (default: 'commerce-extensibility-docs')
  * @param {Object} options.customHeaders - Additional headers to add
  * @returns {Promise<{response: Response, data: Object}>} Response object and parsed JSON data
- * 
+ *
  * @example
  * // Normal authenticated query
  * makeQuery('webhooks', { token: 'valid-ims-token' })
- * 
+ *
  * // Query without authentication (tests missing auth)
  * makeQuery('webhooks')
- * 
+ *
  * // Query with invalid token
  * makeQuery('webhooks', { token: 'invalid-token' })
- * 
+ *
  * // Query with custom auth header format
  * makeQuery('webhooks', { authHeader: 'just-a-token-without-bearer' })
- * 
+ *
  * // Query with empty auth header
  * makeQuery('webhooks', { authHeader: '' })
  */
-export async function makeQuery(query, options = {}) {
+export default async function makeQuery(query, options = {}) {
   const {
     token = null,
     authHeader = null,
     count = 3,
     indexName,
-    customHeaders = {}
+    customHeaders = {},
   } = options;
 
   // Get endpoint from environment
-  const APIM_ENDPOINT = process.env.APIM_ENDPOINT;
+  const { APIM_ENDPOINT } = process.env;
   if (!APIM_ENDPOINT) {
     throw new Error('APIM_ENDPOINT not configured in environment variables');
   }
@@ -51,7 +51,7 @@ export async function makeQuery(query, options = {}) {
   // Build base headers
   const headers = {
     'Content-Type': 'application/json',
-    ...customHeaders
+    ...customHeaders,
   };
 
   // Add Authorization header based on options
@@ -68,14 +68,13 @@ export async function makeQuery(query, options = {}) {
   const response = await fetch(QUERY_ENDPOINT, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ query, count, indexName })
+    body: JSON.stringify({ query, count, indexName }),
   });
 
   // Parse response (handle empty/invalid JSON gracefully)
-  // Note: response.text() can only be called ONCE, so we read it first then parse
   let data;
   const responseText = await response.text();
-  
+
   try {
     // Check for empty response (some error responses have no body)
     if (!responseText || responseText.trim() === '') {
@@ -88,11 +87,8 @@ export async function makeQuery(query, options = {}) {
   } catch (error) {
     // JSON parsing failed - log the raw response for debugging
     console.error(`Failed to parse response as JSON for query: "${query}"`);
-    console.error(`Response status: ${response.status}`);
-    console.error(`Response body (first 200 chars): ${responseText.substring(0, 200)}`);
     throw new Error(`Invalid JSON response: ${error.message}`);
   }
-  
+
   return { response, data };
 }
-

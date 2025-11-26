@@ -13,8 +13,12 @@ jobs:
   e2e-test:
     name: Run E2E Tests
     environment: test
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    runs-on: ${{ matrix.os }}
+    strategy:
+      max-parallel: 1
+      matrix:
+        node-version: ['22']
+        os: [ubuntu-latest]
 
     steps:
       - name: Checkout code
