@@ -39,8 +39,8 @@ jobs:
       - name: Run E2E Tests
         env:
           # IMS OAuth credentials
-          IMS_CLIENT_ID: 0338c760580f4f39a989eb6032b68f85
-          IMS_CLIENT_SECRET: s8e-0w_rBNHZBRl2Pl9nFEccp6a_H0zNCmQL
+          IMS_CLIENT_ID: ${{ vars.CLIENT_ID }}
+          IMS_CLIENT_SECRET: ${{ vars.CLIENT_SECRET }}
           IMS_TOKEN_URL: https://ims-na1.adobelogin.com/ims/token/v1
           
           # APIM endpoint
