@@ -114,14 +114,6 @@ export class ImsHelper {
       throw new Error('OAuth credentials not configured. Set IMS_CLIENT_ID and IMS_CLIENT_SECRET in .env for local tests');
     }
 
-    // Debug logging (mask sensitive data)
-    console.log('=== IMS OAuth Token Request ===');
-    console.log('IMS URL:', this.imsUrl);
-    console.log('Client ID:', this.oauthClientId ? `${this.oauthClientId.substring(0, 8)}...` : 'MISSING');
-    console.log('Client Secret:', this.oauthClientSecret ? `${this.oauthClientSecret.substring(0, 4)}...${this.oauthClientSecret.substring(this.oauthClientSecret.length - 4)}` : 'MISSING');
-    console.log('Scope: openid,AdobeID');
-    console.log('================================');
-
     try {
       const response = await fetch(this.imsUrl, {
         method: 'POST',
