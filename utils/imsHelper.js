@@ -1,13 +1,15 @@
 /**
- * IMS Helper - Handles Adobe IMS authentication for CI/CD
+ * IMS Helper - Handles Adobe IMS authentication for tests
  * 
- * Supports GitHub Actions caching to reuse tokens between workflow runs
- * Supports: OAuth S2S (client credentials grant)
+ * Supports:
+ * - Local: Adobe I/O CLI (aio auth login --bare)
+ * - CI/CD: OAuth S2S (client credentials grant) with GitHub Actions caching
  */
 
 import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 
 export class ImsHelper {
   constructor() {
@@ -22,6 +24,58 @@ export class ImsHelper {
   }
 
   /**
+   * Get IMS token for testing (universal method)
+   * 
+   * Automatically detects environment and uses appropriate method:
+   * - Local: Adobe I/O CLI (aio auth login --bare)
+   * - CI/CD: OAuth S2S with caching
+   * 
+   * @returns {Promise<string>} Access token
+   */
+  async getToken() {
+    // Override: Allow manual token for debugging/testing
+    if (process.env.IMS_TOKEN) {
+      console.log('Using IMS_TOKEN from environment variable (override)');
+      return process.env.IMS_TOKEN;
+    }
+
+    const isCI = process.env.GITHUB_ACTIONS || process.env.CI;
+    
+    if (isCI) {
+      // CI/CD: Use OAuth S2S with caching
+      console.log('CI/CD environment detected - using OAuth S2S');
+      return await this.getOAuthToken();
+    } else {
+      // Local: Use aio CLI
+      console.log('Local environment - using aio CLI');
+      return await this.getLocalToken();
+    }
+  }
+
+  /**
+   * Get token from local aio CLI
+   * @private
+   * @returns {Promise<string>} Access token
+   */
+  async getLocalToken() {
+    try {
+      const token = execSync('aio auth login --bare', { 
+        encoding: 'utf-8',
+        stdio: 'pipe'
+      }).trim();
+      
+      if (!token) {
+        throw new Error('aio CLI returned empty token');
+      }
+      
+      console.log('Token obtained from aio CLI successfully');
+      return token;
+    } catch (error) {
+      throw new Error(`Failed to get IMS token via aio CLI: ${error.message}\nMake sure you've run: aio auth login`);
+    }
+  }
+
+  /**
    * Get OAuth S2S token using client credentials grant
    * Checks cache first, fetches new token if expired
    * @returns {Promise<string>} Access token
@@ -30,16 +84,16 @@ export class ImsHelper {
     // Try to load cached token first
     const cachedToken = this.loadCachedToken();
     if (cachedToken && this.isTokenValid(cachedToken)) {
-      console.log('✅ Using cached token (still valid)');
+      console.log('Using cached token (still valid)');
       const remainingMinutes = Math.floor((cachedToken.expires_at - Date.now()) / 60000);
       console.log(`   Token expires in ${remainingMinutes} minutes`);
       return cachedToken.access_token;
     }
 
     if (cachedToken) {
-      console.log('⚠️  Cached token expired, fetching new one...');
+      console.log('Cached token expired, fetching new one...');
     } else {
-      console.log('🔐 No cached token found, fetching from IMS...');
+      console.log('No cached token found, fetching from IMS...');
     }
 
     // Fetch new token
@@ -57,10 +111,10 @@ export class ImsHelper {
    */
   async fetchNewToken() {
     if (!this.oauthClientId || !this.oauthClientSecret) {
-      throw new Error('OAuth credentials not configured. Set IMS_CLIENT_ID and IMS_CLIENT_SECRET');
+      throw new Error('OAuth credentials not configured. Set IMS_CLIENT_ID and IMS_CLIENT_SECRET in .env for local tests');
     }
 
-    const tokenUrl = process.env.IMS_TOKEN_URL || `${this.imsUrl}/ims/token/v1`;
+    const tokenUrl = `${this.imsUrl}/ims/token/v1`;
 
     try {
       const response = await fetch(tokenUrl, {
@@ -87,12 +141,12 @@ export class ImsHelper {
       const expiresIn = data.expires_in || 86400; // Default 24 hours
       data.expires_at = Date.now() + ((expiresIn - 300) * 1000); // -5 min buffer
       
-      console.log('✅ New OAuth token obtained successfully');
-      console.log(`   Token valid for ${Math.floor(expiresIn / 3600)} hours`);
+      console.log('New OAuth token obtained successfully');
+      console.log(`Token valid for ${Math.floor(expiresIn / 3600)} hours`);
       
       return data;
     } catch (error) {
-      console.error('❌ Error getting OAuth token:', error.message);
+      console.error('Error getting OAuth token:', error.message);
       throw error;
     }
   }
@@ -108,7 +162,7 @@ export class ImsHelper {
         return JSON.parse(data);
       }
     } catch (error) {
-      console.warn('⚠️  Failed to load cached token:', error.message);
+      console.warn('Failed to load cached token:', error.message);
     }
     return null;
   }
@@ -120,9 +174,9 @@ export class ImsHelper {
   saveCachedToken(tokenData) {
     try {
       fs.writeFileSync(this.cacheFilePath, JSON.stringify(tokenData, null, 2));
-      console.log('💾 Token cached for future workflow runs');
+      console.log('Token cached for future workflow runs');
     } catch (error) {
-      console.warn('⚠️  Failed to cache token:', error.message);
+      console.warn('Failed to cache token:', error.message);
     }
   }
 
@@ -135,30 +189,6 @@ export class ImsHelper {
       return false;
     }
     return Date.now() < tokenData.expires_at;
-  }
-
-  /**
-   * Get token info for debugging (decodes JWT)
-   * @param {string} token - JWT access token
-   * @returns {Object|null} Decoded token payload
-   */
-  getTokenInfo(token) {
-    try {
-      const parts = token.split('.');
-      if (parts.length !== 3) {
-        return null;
-      }
-      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-      return {
-        userId: payload.user_id,
-        clientId: payload.client_id,
-        expires: new Date(payload.exp * 1000).toISOString(),
-        scopes: payload.scope
-      };
-    } catch (error) {
-      console.warn('⚠️ Failed to parse token:', error.message);
-      return null;
-    }
   }
 }
 

@@ -41,16 +41,16 @@ jobs:
           # IMS OAuth credentials
           IMS_CLIENT_ID: 0338c760580f4f39a989eb6032b68f85
           IMS_CLIENT_SECRET: s8e-0w_rBNHZBRl2Pl9nFEccp6a_H0zNCmQL
-          IMS_TOKEN_URL: https://ims-na1-stg1.adobelogin.com/ims/token/v1
+          IMS_TOKEN_URL: https://ims-na1.adobelogin.com/ims/token/v1
           
           # APIM endpoint
-          APIM_ENDPOINT: https://commerce-docs-dev-apim.azure-api.net
+          APIM_ENDPOINT: https://commerce-docs-prod-apim.azure-api.net
           
           # CI flag to use OAuth instead of aio CLI (GITHUB_ACTIONS is set automatically by GitHub)
           CI: true
         run: |
           echo "🧪 Running E2E tests..."
-          npm run test:query --verbose
+          npm run test:e2e --verbose
 
       # - name: Upload test results
       #   if: always()

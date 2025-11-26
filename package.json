@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test:query": "node --experimental-vm-modules node_modules/jest/bin/jest.js e2e/query.test.js --verbose",
+    "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js e2e/ --verbose",
     "test:load": "export $(grep -v '^#' .env | xargs) && k6 run load-tests/basic-search-load.js",
     "lint": "echo 'No linter configured yet' && exit 0"
   },
