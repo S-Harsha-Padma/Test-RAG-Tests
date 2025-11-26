@@ -114,10 +114,8 @@ export class ImsHelper {
       throw new Error('OAuth credentials not configured. Set IMS_CLIENT_ID and IMS_CLIENT_SECRET in .env for local tests');
     }
 
-    const tokenUrl = `${this.imsUrl}/ims/token/v1`;
-
     try {
-      const response = await fetch(tokenUrl, {
+      const response = await fetch(this.imsUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
