@@ -33,23 +33,19 @@ export class ImsHelper {
    * @returns {Promise<string>} Access token
    */
   async getToken() {
-    // Override: Allow manual token for debugging/testing
-    if (process.env.IMS_TOKEN) {
-      console.log('Using IMS_TOKEN from environment variable (override)');
-      return process.env.IMS_TOKEN;
-    }
 
     const isCI = process.env.GITHUB_ACTIONS || process.env.CI;
     
     if (isCI) {
       // CI/CD: Use OAuth S2S with caching
+      // eslint-disable-next-line no-console
       console.log('CI/CD environment detected - using OAuth S2S');
-      return await this.getOAuthToken();
-    } else {
-      // Local: Use aio CLI
-      console.log('Local environment - using aio CLI');
-      return await this.getLocalToken();
+      return this.getOAuthToken();
     }
+    // Local: Use aio CLI
+    // eslint-disable-next-line no-console
+    console.log('Local environment - using aio CLI');
+    return this.getLocalToken();
   }
 
   /**
@@ -57,7 +53,8 @@ export class ImsHelper {
    * @private
    * @returns {Promise<string>} Access token
    */
-  async getLocalToken() {
+  // eslint-disable-next-line class-methods-use-this
+  getLocalToken() {
     try {
       const token = execSync('aio auth login --bare', { 
         encoding: 'utf-8',
@@ -185,6 +182,7 @@ export class ImsHelper {
    * Check if token is still valid
    * @private
    */
+  // eslint-disable-next-line class-methods-use-this
   isTokenValid(tokenData) {
     if (!tokenData || !tokenData.expires_at) {
       return false;

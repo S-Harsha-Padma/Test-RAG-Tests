@@ -20,7 +20,7 @@ import {
   describe, test, expect, beforeAll,
 } from '@jest/globals';
 import { ImsHelper } from '../utils/imsHelper.js';
-import { makeQuery } from '../utils/queryHelper.js';
+import makeQuery from '../utils/queryHelper.js';
 
 // Load environment variables
 const __filename = fileURLToPath(import.meta.url);
