@@ -182,8 +182,13 @@ export default function () {
       console.error('Response body:', response.body.substring(0, 500));
     }
   } else {
-    console.error(`Request failed with status ${response.status}`);
-    console.error(`Response body: ${response.body.substring(0, 500)}`);
+    // Log failed requests with details for debugging
+    const timestamp = new Date().toISOString();
+    console.error(`[${timestamp}] Request failed with status ${response.status}`);
+    console.error(`  Query: "${query.substring(0, 50)}..."`);
+    console.error(`  Index: ${indexName}`);
+    console.error(`  Response body: ${response.body.substring(0, 500)}`);
+    console.error(`  Duration: ${duration}ms`);
   }
 
   // Simulate user think time (realistic pause between requests)
