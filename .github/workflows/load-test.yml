@@ -20,6 +20,18 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      
       # Install k6 binary
       - name: Install k6
         run: |
@@ -37,23 +49,29 @@ jobs:
       - name: Get IMS Token
         id: ims-token
         run: |
-          # Determine suffix based on environment
-          if [ "${{ inputs.environment }}" = "prod" ]; then
-            SUFFIX="_PROD"
-          else
-            SUFFIX="_STAGE"
-          fi
-          
-          # Get credentials dynamically
+          # Get credentials dynamically based on environment
           if [ "${{ inputs.environment }}" = "prod" ]; then
             CLIENT_ID="${{ secrets.CLIENT_ID_PROD }}"
             CLIENT_SECRET="${{ secrets.CLIENT_SECRET_PROD }}"
             IMS_URL="${{ vars.IMS_TOKEN_URL_PROD }}"
+            echo "Using PROD credentials"
           else
             CLIENT_ID="${{ secrets.CLIENT_ID_STAGE }}"
             CLIENT_SECRET="${{ secrets.CLIENT_SECRET_STAGE }}"
             IMS_URL="${{ vars.IMS_TOKEN_URL_STAGE }}"
+            echo "Using STAGE credentials"
           fi
+          
+          # Validate credentials are set
+          if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ] || [ -z "$IMS_URL" ]; then
+            echo "❌ Error: Missing credentials for ${{ inputs.environment }}"
+            echo "CLIENT_ID set: $([ -z "$CLIENT_ID" ] && echo "NO" || echo "YES")"
+            echo "CLIENT_SECRET set: $([ -z "$CLIENT_SECRET" ] && echo "NO" || echo "YES")"
+            echo "IMS_URL: $IMS_URL"
+            exit 1
+          fi
+          
+          echo "Fetching token from: $IMS_URL"
           
           # Get token using selected credentials
           TOKEN=$(curl -s -X POST "$IMS_URL" \
@@ -62,6 +80,12 @@ jobs:
             -d "client_secret=$CLIENT_SECRET" \
             -d "scope=openid,AdobeID" | jq -r '.access_token')
           
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "❌ Failed to get token from IMS"
+            exit 1
+          fi
+          
+          echo "✅ Token obtained successfully"
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
       

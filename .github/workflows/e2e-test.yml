@@ -3,10 +3,10 @@ name: E2E Tests
 on:
   push:
     branches:
-      # - main
+      - main1
   pull_request:
     branches:
-      # - main
+      - main1
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
