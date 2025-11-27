@@ -3,10 +3,10 @@ name: E2E Tests
 on:
   push:
     branches:
-      - main
+      # - main
   pull_request:
     branches:
-      - main
+      # - main
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
@@ -46,10 +46,10 @@ jobs:
           # IMS OAuth credentials
           IMS_CLIENT_ID: ${{ vars.CLIENT_ID }}
           IMS_CLIENT_SECRET: ${{ vars.CLIENT_SECRET }}
-          IMS_TOKEN_URL: https://ims-na1.adobelogin.com/ims/token/v1
+          IMS_TOKEN_URL: https://ims-na1-stg1.adobelogin.com/ims/token/v1
           
           # APIM endpoint
-          APIM_ENDPOINT: https://commerce-docs-prod-apim.azure-api.net
+          APIM_ENDPOINT: https://commerce-docs-dev-apim.azure-api.net
           
           # CI flag to use OAuth instead of aio CLI (GITHUB_ACTIONS is set automatically by GitHub)
           CI: true
