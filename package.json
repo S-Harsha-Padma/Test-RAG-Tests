@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "test:e2e": "NODE_OPTIONS=--experimental-vm-modules jest e2e/ --verbose",
-    "test:load": "export $(grep -v '^#' .env | xargs) && k6 run load-tests/basic-search-load.js",
+    "test:load": "export IMS_TOKEN=${IMS_TOKEN:-$(aio auth login --bare)} && mkdir -p load-test/results && for file in load-test/*.test.js; do [ -f \"$file\" ] && k6 run -e APIM_ENDPOINT=\"${APIM_ENDPOINT}\" -e IMS_TOKEN=\"${IMS_TOKEN}\" --out json=load-test/results/$(basename \"$file\" .test.js).json \"$file\"; done",
     "lint": "echo 'No linter configured yet' && exit 0"
   },
   "keywords": [
