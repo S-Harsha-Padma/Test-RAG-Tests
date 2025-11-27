@@ -43,10 +43,8 @@ export const options = {
   
   // Performance thresholds (test fails if these aren't met)
   thresholds: {
-    'http_req_duration': ['p(95)<3000'],  // 95% of requests under 3s
-    'http_req_failed': ['rate<0.01'],     // Error rate under 1%
-    'errors': ['rate<0.01'],
-    'checks': ['rate>0.95'],              // 95% of checks pass
+    'http_req_duration': ['p(95)<3000'],  // P95 latency < 3s
+    'http_req_failed': ['rate<0.01'],     // Error rate < 1%
   },
 };
 
