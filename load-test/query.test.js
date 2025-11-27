@@ -29,7 +29,7 @@ const tokensUsed = new Counter('tokens_used');
 
 // Load test configuration
 export const options = {
-  // Stages simulate realistic user load
+  // Stages simulate realistic user load - target 1000 req/min with 100 users
   stages: [
     { duration: '30s', target: 1 },
     { duration: '30s', target: 2 },
@@ -166,7 +166,7 @@ export default function () {
   });
 
   // Track token usage if available
-  if (response.status === 200) {
+  if (response.status === 200 || response.status === 429) {
     try {
       const body = response.json();
       if (body.usage && body.usage.tokensUsed) {
@@ -192,8 +192,9 @@ export default function () {
   }
 
   // Simulate user think time (realistic pause between requests)
-  // To achieve ~1000 req/min with 100 users: (100 * 60) / 1000 = 6 seconds
-  sleep(Math.random() * 2 + 5);  // Random sleep 5-7 seconds (avg ~6s for 1000 req/min)
+  // For 1000 req/min with 100 users: each user makes ~10 req/min = 1 req every 6s
+  // Sleep time = 6s total - request duration (~1-2s avg) = ~4-5s sleep
+  sleep(Math.random() * 2 + 4);  // Random sleep 4-6 seconds (avg ~5s for target 1000 req/min)
 }
 
 export function handleSummary(data) {
