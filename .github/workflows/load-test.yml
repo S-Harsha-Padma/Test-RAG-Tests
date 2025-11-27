@@ -7,7 +7,7 @@ on:
       environment:
         description: 'Environment to test'
         required: true
-        default: 'test'
+        default: 'dev'
         type: choice
         options:
           - dev
@@ -17,6 +17,7 @@ jobs:
   load-test:
     name: Run k6 Load Tests - ${{ inputs.environment }}
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}  # Use the selected environment (dev/prod)
     if: ${{ github.event_name == 'workflow_dispatch' }}
     
     steps:
@@ -49,25 +50,38 @@ jobs:
       - name: Get IMS Token
         id: ims-token
         run: |
+          echo "🔍 Debug Info:"
+          echo "  - Selected environment: ${{ inputs.environment }}"
+          echo "  - Environment context: ${{ github.environment }}"
+          echo ""
+          
           # Get credentials dynamically based on environment
           if [ "${{ inputs.environment }}" = "prod" ]; then
             CLIENT_ID="${{ secrets.CLIENT_ID_PROD }}"
             CLIENT_SECRET="${{ secrets.CLIENT_SECRET_PROD }}"
             IMS_URL="${{ vars.IMS_TOKEN_URL_PROD }}"
-            echo "Using PROD credentials"
+            echo "Using PROD credentials (looking for _PROD suffix)"
           else
             CLIENT_ID="${{ secrets.CLIENT_ID_STAGE }}"
             CLIENT_SECRET="${{ secrets.CLIENT_SECRET_STAGE }}"
             IMS_URL="${{ vars.IMS_TOKEN_URL_STAGE }}"
-            echo "Using STAGE credentials"
+            echo "Using STAGE credentials (looking for _STAGE suffix)"
           fi
           
+          echo ""
+          echo "🔐 Credential Check:"
           # Validate credentials are set
           if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ] || [ -z "$IMS_URL" ]; then
             echo "❌ Error: Missing credentials for ${{ inputs.environment }}"
-            echo "CLIENT_ID set: $([ -z "$CLIENT_ID" ] && echo "NO" || echo "YES")"
-            echo "CLIENT_SECRET set: $([ -z "$CLIENT_SECRET" ] && echo "NO" || echo "YES")"
-            echo "IMS_URL: $IMS_URL"
+            echo "  - CLIENT_ID set: $([ -z "$CLIENT_ID" ] && echo "NO ❌" || echo "YES ✅")"
+            echo "  - CLIENT_SECRET set: $([ -z "$CLIENT_SECRET" ] && echo "NO ❌" || echo "YES ✅")"
+            echo "  - IMS_URL set: $([ -z "$IMS_URL" ] && echo "NO ❌" || echo "YES ✅")"
+            echo "  - IMS_URL value: '$IMS_URL'"
+            echo ""
+            echo "💡 Troubleshooting:"
+            echo "  1. Verify environment '${{ inputs.environment }}' exists in GitHub Settings → Environments"
+            echo "  2. Check that secrets CLIENT_ID_STAGE and CLIENT_SECRET_STAGE exist in that environment"
+            echo "  3. Check that variables IMS_TOKEN_URL_STAGE and APIM_ENDPOINT_STAGE exist in that environment"
             exit 1
           fi
           
