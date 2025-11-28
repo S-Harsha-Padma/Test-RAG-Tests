@@ -1,0 +1,51 @@
+name: E2E Tests for Stage
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'e2e/**'
+
+jobs:
+  e2e-test:
+    name: Run E2E Tests for Stage
+    environment: dev
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Restore IMS token cache
+        uses: actions/cache@v4
+        with:
+          path: .ims-token-dev-cache.json
+          key: ims-token-${{ github.repository }}-${{ hashFiles('.ims-token-dev-cache.json') }}
+          restore-keys: |
+            ims-token-${{ github.repository }}-dev-
+
+      - name: Run E2E Tests
+        env:
+          # IMS OAuth credentials
+          IMS_CLIENT_ID: ${{ secrets.CLIENT_ID_STAGE }}
+          IMS_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET_STAGE }}
+          IMS_TOKEN_URL: ${{ vars.IMS_TOKEN_URL_STAGE }} 
+          # APIM endpoint
+          APIM_ENDPOINT: ${{ vars.APIM_ENDPOINT_STAGE }} 
+          # CI flag to use OAuth instead of aio CLI (GITHUB_ACTIONS is set automatically by GitHub)
+          CI: true
+          CACHE_ENV: dev
+        run: |
+          echo "Running E2E tests..."
+          npm run test:e2e --verbose
+
