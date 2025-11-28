@@ -138,11 +138,80 @@ describe('Security Hardening Tests', () => {
   });
 
   /**
-   * Test 5: Rate Limiting (Layer 6 - via APIM policy)
+   * Test 4: Response Headers Security
+   * Tests: Security headers are present
+   */
+  describe('Test 4: Security Headers', () => {
+    it('should include proper security headers', async () => {
+      const { response } = await makeQuery('test', {
+        token: premiumToken,
+        count: 1,
+      });
+
+      // Check for security headers
+      const headers = Object.fromEntries(response.headers);
+      
+      console.log('✅ Test 6 Completed: Security headers check');
+      console.log(`   - Status: ${response.status}`);
+      console.log(`   - Headers present: ${Object.keys(headers).length}`);
+      
+      // Log important security headers if present
+      const securityHeaders = [
+        'x-content-type-options',
+        'x-frame-options',
+        'content-security-policy',
+        'strict-transport-security'
+      ];
+      
+      securityHeaders.forEach(header => {
+        if (headers[header]) {
+          console.log(`   - ${header}: ${headers[header]}`);
+        }
+      });
+    }, 15000);
+  });
+
+  /**
+   * Test 5: Error Handling
+   * Tests: Proper error messages without leaking sensitive info
+   */
+  describe('Test 5: Error Handling', () => {
+    it('should return safe error messages', async () => {
+      // Test with malformed request (empty query)
+      const { response, data } = await makeQuery('', {
+        token: premiumToken,
+        count: 5,
+      });
+      
+      // Should return error but not leak sensitive information
+      if (!data.success) {
+        expect(data.error).toBeDefined();
+        
+        // Error message should not contain sensitive data
+        const errorStr = JSON.stringify(data).toLowerCase();
+        expect(errorStr).not.toContain('password');
+        expect(errorStr).not.toContain('secret');
+        expect(errorStr).not.toContain('connection');
+        expect(errorStr).not.toContain('stack trace');
+        
+        console.log('✅ Test 7 Passed: Safe error handling');
+        console.log(`   - Error type: ${data.error}`);
+        console.log(`   - Message: ${data.message || data.error}`);
+        console.log(`   - No sensitive data leaked ✓`);
+      } else {
+        // If query succeeded, that's also fine
+        console.log('✅ Test 7 Passed: Query succeeded (empty query handled gracefully)');
+      }
+    }, 15000);
+  });
+
+
+  /**
+   * Test 6: Rate Limiting (Layer 6 - via APIM policy)
    * Tests: Rate limit enforcement
    * Uses OAuth S2S token (free tier: 10 calls/min) to trigger rate limits
    */
-  describe('Test 4: Rate Limiting', () => {
+  describe('Test 6: Rate Limiting', () => {
     it('should enforce rate limits with free tier token', async () => {
       // Use free tier token if available, otherwise skip
       const testToken = freeTierToken || imsToken;
@@ -200,75 +269,6 @@ describe('Security Hardening Tests', () => {
       }
     }, 60000);
   });
-
-  /**
-   * Test 6: Response Headers Security
-   * Tests: Security headers are present
-   */
-  describe('Test 5: Security Headers', () => {
-    it('should include proper security headers', async () => {
-      const { response } = await makeQuery('test', {
-        token: premiumToken,
-        count: 1,
-      });
-
-      // Check for security headers
-      const headers = Object.fromEntries(response.headers);
-      
-      console.log('✅ Test 6 Completed: Security headers check');
-      console.log(`   - Status: ${response.status}`);
-      console.log(`   - Headers present: ${Object.keys(headers).length}`);
-      
-      // Log important security headers if present
-      const securityHeaders = [
-        'x-content-type-options',
-        'x-frame-options',
-        'content-security-policy',
-        'strict-transport-security'
-      ];
-      
-      securityHeaders.forEach(header => {
-        if (headers[header]) {
-          console.log(`   - ${header}: ${headers[header]}`);
-        }
-      });
-    }, 15000);
-  });
-
-  /**
-   * Test 7: Error Handling
-   * Tests: Proper error messages without leaking sensitive info
-   */
-  describe('Test 6: Error Handling', () => {
-    it('should return safe error messages', async () => {
-      // Test with malformed request (empty query)
-      const { response, data } = await makeQuery('', {
-        token: premiumToken,
-        count: 5,
-      });
-      
-      // Should return error but not leak sensitive information
-      if (!data.success) {
-        expect(data.error).toBeDefined();
-        
-        // Error message should not contain sensitive data
-        const errorStr = JSON.stringify(data).toLowerCase();
-        expect(errorStr).not.toContain('password');
-        expect(errorStr).not.toContain('secret');
-        expect(errorStr).not.toContain('connection');
-        expect(errorStr).not.toContain('stack trace');
-        
-        console.log('✅ Test 7 Passed: Safe error handling');
-        console.log(`   - Error type: ${data.error}`);
-        console.log(`   - Message: ${data.message || data.error}`);
-        console.log(`   - No sensitive data leaked ✓`);
-      } else {
-        // If query succeeded, that's also fine
-        console.log('✅ Test 7 Passed: Query succeeded (empty query handled gracefully)');
-      }
-    }, 15000);
-  });
-
   /**
    * Test 8: Usage Tracking in Azure Table Storage
    * Tests: Layer 5 (Usage tracking) - verifies queries are logged
