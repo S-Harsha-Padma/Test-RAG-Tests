@@ -28,10 +28,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
       
       # Install k6 binary
       - name: Install k6
@@ -50,81 +46,49 @@ jobs:
       - name: Get IMS Token
         id: ims-token
         run: |
-          # OPTION 1: Use personal token if provided (premium tier: 1000 calls/min)
+          # Check for environment-specific personal token first
+          if [ "${{ inputs.environment }}" = "prod" ]; then
+            if [ -n "${{ secrets.IMS_TOKEN_PERSONAL_PROD }}" ]; then
+              echo "Using personal Adobe token for PROD (premium tier)"
+              TOKEN="${{ secrets.IMS_TOKEN_PERSONAL_PROD }}"
+              echo "::add-mask::$TOKEN"
+              echo "token=$TOKEN" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          else
+            if [ -n "${{ secrets.IMS_TOKEN_PERSONAL_STAGE }}" ]; then
+              echo "Using personal Adobe token for STAGE (premium tier)"
+              TOKEN="${{ secrets.IMS_TOKEN_PERSONAL_STAGE }}"
+              echo "::add-mask::$TOKEN"
+              echo "token=$TOKEN" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          fi
+          
+          # Fallback to generic personal token (works for all environments)
           if [ -n "${{ secrets.IMS_TOKEN_PERSONAL }}" ]; then
-            echo "🎯 Using personal Adobe token (premium tier: 1000 calls/min)"
-            echo "✅ No rate limit issues expected"
+            echo "Using generic personal Adobe token (premium tier)"
             TOKEN="${{ secrets.IMS_TOKEN_PERSONAL }}"
             echo "::add-mask::$TOKEN"
             echo "token=$TOKEN" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
-          echo "⚠️  No IMS_TOKEN_PERSONAL found - using service credentials (free tier: 10 calls/min)"
-          echo "💡 To avoid rate limits, add IMS_TOKEN_PERSONAL secret from: aio auth login --bare"
+  
+          echo "Error: No token available for ${{ inputs.environment }}!"
           echo ""
-          echo "🔍 Debug Info:"
-          echo "  - Selected environment: ${{ inputs.environment }}"
-          echo "  - Environment context: ${{ github.environment }}"
+          echo "To run load tests, add one of these secrets:"
           echo ""
-          
-          # Get credentials dynamically based on environment
+          echo "Option 1 - Environment-specific token:"
           if [ "${{ inputs.environment }}" = "prod" ]; then
-            CLIENT_ID="${{ secrets.CLIENT_ID_PROD }}"
-            CLIENT_SECRET="${{ secrets.CLIENT_SECRET_PROD }}"
-            IMS_URL="${{ vars.IMS_TOKEN_URL_PROD }}"
-            echo "Using PROD credentials (looking for _PROD suffix)"
+            echo "  - Secret name: IMS_TOKEN_PERSONAL_PROD"
           else
-            CLIENT_ID="${{ secrets.CLIENT_ID_STAGE }}"
-            CLIENT_SECRET="${{ secrets.CLIENT_SECRET_STAGE }}"
-            IMS_URL="${{ vars.IMS_TOKEN_URL_STAGE }}"
-            echo "Using STAGE credentials (looking for _STAGE suffix)"
+            echo "  - Secret name: IMS_TOKEN_PERSONAL_STAGE"
           fi
-          
+          echo "  - Get token: aio auth login --bare (using your ${{ inputs.environment }} Adobe account)"
           echo ""
-          echo "🔐 Credential Check:"
-          # Validate credentials are set
-          if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ] || [ -z "$IMS_URL" ]; then
-            echo "❌ Error: Missing credentials for ${{ inputs.environment }}"
-            echo "  - CLIENT_ID set: $([ -z "$CLIENT_ID" ] && echo "NO ❌" || echo "YES ✅")"
-            echo "  - CLIENT_SECRET set: $([ -z "$CLIENT_SECRET" ] && echo "NO ❌" || echo "YES ✅")"
-            echo "  - IMS_URL set: $([ -z "$IMS_URL" ] && echo "NO ❌" || echo "YES ✅")"
-            echo "  - IMS_URL value: '$IMS_URL'"
-            echo ""
-            echo "💡 Troubleshooting:"
-            echo "  1. Verify environment '${{ inputs.environment }}' exists in GitHub Settings → Environments"
-            echo "  2. Check that secrets CLIENT_ID_STAGE and CLIENT_SECRET_STAGE exist in that environment"
-            echo "  3. Check that variables IMS_TOKEN_URL_STAGE and APIM_ENDPOINT_STAGE exist in that environment"
-            exit 1
-          fi
-          
-          echo "Fetching token from: $IMS_URL"
-          
-          # Get token using selected credentials
-          # TOKEN=$(curl -s -X POST "$IMS_URL" \
-          #   -d "grant_type=client_credentials" \
-          #   -d "client_id=$CLIENT_ID" \
-          #   -d "client_secret=$CLIENT_SECRET" \
-          #   -d "scope=openid,AdobeID" | jq -r '.access_token')
-          
-          # if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
-          #   echo "❌ Failed to get token from IMS"
-          #   exit 1
-          # fi
-          
-          # echo "✅ Token obtained successfully"
-          # echo "::add-mask::$TOKEN"
-          # echo "token=$TOKEN" >> $GITHUB_OUTPUT
-          
-          # OAuth S2S disabled - you MUST set IMS_TOKEN_PERSONAL in GitHub secrets!
-          echo "❌ Error: No token available!"
-          echo "OAuth S2S is disabled (commented out above)"
-          echo ""
-          echo "To run load tests, you MUST add IMS_TOKEN_PERSONAL secret:"
-          echo "  1. Run locally: aio auth login --bare"
-          echo "  2. Copy the token output"
-          echo "  3. Go to: Settings → Secrets and variables → Actions"
-          echo "  4. Add secret: IMS_TOKEN_PERSONAL = (paste token)"
+          echo "Option 2 - Generic token (works for all environments):"
+          echo "  - Secret name: IMS_TOKEN_PERSONAL"
+          echo "  - Get token: aio auth login --bare"
           echo ""
           echo "This gives you premium tier (1000 calls/min) for testing!"
           exit 1
@@ -141,19 +105,53 @@ jobs:
       - name: Analyze Results
         if: always()
         run: |
-          echo "## 📊 Load Test Results - ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "## Load Test Results - ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Check for any result files
           if ls load-test/results/*.json 1> /dev/null 2>&1; then
             echo "### Load Test Summary" >> $GITHUB_STEP_SUMMARY
             for file in load-test/results/*.json; do
-              echo "- Test: $(basename $file .json)" >> $GITHUB_STEP_SUMMARY
-              # Extract P95 if available
-              P95=$(cat "$file" | jq -r 'select(.type == "Point" and .metric == "http_req_duration") | .data.value' 2>/dev/null | head -1)
+              echo "- **Test:** $(basename $file .json)" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              
+              # Extract metrics from k6 JSON output
+              # P95 Latency
+              P95=$(cat "$file" | jq -r 'select(.type == "Point" and .metric == "http_req_duration" and .data.tags.expected_response == "true") | .data.value' 2>/dev/null | tail -1)
+              
+              # Error Rate
+              ERROR_RATE=$(cat "$file" | jq -r 'select(.type == "Point" and .metric == "http_req_failed") | .data.value' 2>/dev/null | tail -1)
+              
+              # Total Requests
+              TOTAL_REQS=$(cat "$file" | jq -r 'select(.type == "Point" and .metric == "http_reqs") | .data.value' 2>/dev/null | tail -1)
+              
+              # Request Rate
+              REQ_RATE=$(cat "$file" | jq -r 'select(.type == "Point" and .metric == "http_reqs") | .data.rate' 2>/dev/null | tail -1)
+              
+              # Display metrics
               if [ ! -z "$P95" ]; then
-                echo "  - P95 Latency: ${P95}ms" >> $GITHUB_STEP_SUMMARY
+                echo "  - **P95 Latency:** ${P95}ms" >> $GITHUB_STEP_SUMMARY
               fi
+              
+              if [ ! -z "$ERROR_RATE" ]; then
+                ERROR_PCT=$(echo "$ERROR_RATE * 100" | bc -l | xargs printf "%.2f")
+                if (( $(echo "$ERROR_RATE > 0.01" | bc -l) )); then
+                  echo "  - **Error Rate:** ❌ ${ERROR_PCT}% (threshold: <1%)" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "  - **Error Rate:** ✅ ${ERROR_PCT}%" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+              
+              if [ ! -z "$TOTAL_REQS" ]; then
+                echo "  - **Total Requests:** ${TOTAL_REQS}" >> $GITHUB_STEP_SUMMARY
+              fi
+              
+              if [ ! -z "$REQ_RATE" ]; then
+                REQ_RATE_FMT=$(echo "$REQ_RATE" | xargs printf "%.2f")
+                echo "  - **Request Rate:** ${REQ_RATE_FMT} req/s" >> $GITHUB_STEP_SUMMARY
+              fi
+              
+              echo "" >> $GITHUB_STEP_SUMMARY
             done
           else
             echo "- No results found" >> $GITHUB_STEP_SUMMARY
