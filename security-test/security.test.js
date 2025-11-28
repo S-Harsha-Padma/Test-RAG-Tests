@@ -74,7 +74,7 @@ describe('Security Hardening Tests', () => {
       expect(data.usage.tier).toBeDefined();
       expect(data.usage.tokensRemaining).toBeDefined();
       
-      console.log('✅ Test 1 Passed: Valid request successful');
+      console.log('Test 1 Passed: Valid request successful');
       console.log(`   - Tokens used: ${data.usage.tokensUsed}`);
       console.log(`   - User tier: ${data.usage.tier}`);
       console.log(`   - Monthly limit: ${data.usage.monthlyLimit}`);
@@ -151,7 +151,7 @@ describe('Security Hardening Tests', () => {
       // Check for security headers
       const headers = Object.fromEntries(response.headers);
       
-      console.log('✅ Test 6 Completed: Security headers check');
+      console.log('Test 6 Completed: Security headers check');
       console.log(`   - Status: ${response.status}`);
       console.log(`   - Headers present: ${Object.keys(headers).length}`);
       
@@ -178,7 +178,7 @@ describe('Security Hardening Tests', () => {
   describe('Test 5: Error Handling', () => {
     it('should return safe error messages', async () => {
       // Test with malformed request (empty query)
-      const { response, data } = await makeQuery('', {
+      const { data } = await makeQuery('', {
         token: premiumToken,
         count: 5,
       });
@@ -194,13 +194,13 @@ describe('Security Hardening Tests', () => {
         expect(errorStr).not.toContain('connection');
         expect(errorStr).not.toContain('stack trace');
         
-        console.log('✅ Test 7 Passed: Safe error handling');
+        console.log('Test 7 Passed: Safe error handling');
         console.log(`   - Error type: ${data.error}`);
         console.log(`   - Message: ${data.message || data.error}`);
         console.log(`   - No sensitive data leaked ✓`);
       } else {
         // If query succeeded, that's also fine
-        console.log('✅ Test 7 Passed: Query succeeded (empty query handled gracefully)');
+        console.log('Test 7 Passed: Query succeeded (empty query handled gracefully)');
       }
     }, 15000);
   });
@@ -215,7 +215,7 @@ describe('Security Hardening Tests', () => {
         const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
         
         if (!connectionString) {
-          console.log('⚠️  Test 8 Skipped: AZURE_STORAGE_CONNECTION_STRING not set');
+          console.log('Test 8 Skipped: AZURE_STORAGE_CONNECTION_STRING not set');
           return;
         }
   
@@ -231,7 +231,7 @@ describe('Security Hardening Tests', () => {
           expect(data.success).toBe(true);
           
           const tokensUsed = data.usage?.tokensUsed || 0;
-          console.log(`✅ Query executed successfully`);
+          console.log(`Query executed successfully`);
           console.log(`   - Tokens used: ${tokensUsed}`);
           console.log(`   - Unique query: "${uniqueQuery}"`);
   
