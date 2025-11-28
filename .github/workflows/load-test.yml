@@ -1,7 +1,6 @@
 name: Load Testing
 
 on:
-  # Or run manually
   workflow_dispatch:
     inputs:
       environment:
@@ -64,32 +63,18 @@ jobs:
               exit 0
             fi
           fi
-          
-          # Fallback to generic personal token (works for all environments)
-          if [ -n "${{ secrets.IMS_TOKEN_PERSONAL }}" ]; then
-            echo "Using generic personal Adobe token (premium tier)"
-            TOKEN="${{ secrets.IMS_TOKEN_PERSONAL }}"
-            echo "::add-mask::$TOKEN"
-            echo "token=$TOKEN" >> $GITHUB_OUTPUT
-            exit 0
-          fi
   
           echo "Error: No token available for ${{ inputs.environment }}!"
           echo ""
           echo "To run load tests, add one of these secrets:"
           echo ""
-          echo "Option 1 - Environment-specific token:"
+          echo "Get Environment-specific token:"
           if [ "${{ inputs.environment }}" = "prod" ]; then
             echo "  - Secret name: IMS_TOKEN_PERSONAL_PROD"
           else
             echo "  - Secret name: IMS_TOKEN_PERSONAL_STAGE"
           fi
-          echo "  - Get token: aio auth login --bare (using your ${{ inputs.environment }} Adobe account)"
-          echo ""
-          echo "Option 2 - Generic token (works for all environments):"
-          echo "  - Secret name: IMS_TOKEN_PERSONAL"
-          echo "  - Get token: aio auth login --bare"
-          echo ""
+          echo "  - To get token: run aio auth login --bare (using your ${{ inputs.environment }} Adobe account in local and use it in git secrets)"
           echo "This gives you premium tier (1000 calls/min) for testing!"
           exit 1
       
