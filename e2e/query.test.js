@@ -199,7 +199,6 @@ describe('Query Endpoint E2E Tests', () => {
           console.log(`Results returned: ${data.results.length}`);
 
           // Results should have lower relevance scores (typically < 0.5 for unrelated content)
-          // This is informational - the service still returns results
           data.results.forEach((result, idx) => {
             console.log(`Result ${idx + 1} score: ${result.score.toFixed(4)}`);
           });

@@ -3,9 +3,10 @@ name: E2E Tests for Production
 on:
   push:
     branches:
-      - main2 # kept as dummy branch to avoid trigger to prod on push
+      - main
     paths:
       - 'e2e/**'
+      - 'utils/**'
 
 jobs:
   e2e-test:
@@ -37,11 +38,11 @@ jobs:
       - name: Run E2E Tests
         env:
           # IMS OAuth credentials
-          IMS_CLIENT_ID: ${{ secrets.CLIENT_ID }}
-          IMS_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
-          IMS_TOKEN_URL: ${{ vars.IMS_TOKEN_URL }} 
+          IMS_CLIENT_ID: ${{ secrets.CLIENT_ID_PROD }}
+          IMS_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET_PROD }}
+          IMS_TOKEN_URL: ${{ vars.IMS_TOKEN_URL_PROD }} 
           # APIM endpoint
-          APIM_ENDPOINT: ${{ vars.APIM_ENDPOINT }} 
+          APIM_ENDPOINT: ${{ vars.APIM_ENDPOINT_PROD }} 
           # CI flag to use OAuth instead of aio CLI (GITHUB_ACTIONS is set automatically by GitHub)
           CI: true
           CACHE_ENV: prod

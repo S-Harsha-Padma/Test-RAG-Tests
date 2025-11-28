@@ -6,6 +6,7 @@ on:
       - develop
     paths:
       - 'e2e/**'
+      - 'utils/**'
 
 jobs:
   e2e-test:
