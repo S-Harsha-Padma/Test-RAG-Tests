@@ -114,25 +114,25 @@ jobs:
               REQ_RATE=$(cat "$file" | jq -r 'select(.type == "Point" and .metric == "http_reqs") | .data.rate' 2>/dev/null | tail -1)
               
               # Display metrics
-              if [ ! -z "$P95" ]; then
+              if [ ! -z "$P95" ] && [ "$P95" != "null" ]; then
                 echo "  - **P95 Latency:** ${P95}ms" >> $GITHUB_STEP_SUMMARY
               fi
               
-              if [ ! -z "$ERROR_RATE" ]; then
-                ERROR_PCT=$(echo "$ERROR_RATE * 100" | bc -l | xargs printf "%.2f")
-                if (( $(echo "$ERROR_RATE > 0.01" | bc -l) )); then
+              if [ ! -z "$ERROR_RATE" ] && [ "$ERROR_RATE" != "null" ]; then
+                ERROR_PCT=$(echo "$ERROR_RATE * 100" | bc -l 2>/dev/null | xargs printf "%.2f" 2>/dev/null || echo "0.00")
+                if (( $(echo "$ERROR_RATE > 0.01" | bc -l 2>/dev/null || echo 0) )); then
                   echo "  - **Error Rate:** ❌ ${ERROR_PCT}% (threshold: <1%)" >> $GITHUB_STEP_SUMMARY
                 else
                   echo "  - **Error Rate:** ✅ ${ERROR_PCT}%" >> $GITHUB_STEP_SUMMARY
                 fi
               fi
               
-              if [ ! -z "$TOTAL_REQS" ]; then
+              if [ ! -z "$TOTAL_REQS" ] && [ "$TOTAL_REQS" != "null" ]; then
                 echo "  - **Total Requests:** ${TOTAL_REQS}" >> $GITHUB_STEP_SUMMARY
               fi
               
-              if [ ! -z "$REQ_RATE" ]; then
-                REQ_RATE_FMT=$(echo "$REQ_RATE" | xargs printf "%.2f")
+              if [ ! -z "$REQ_RATE" ] && [ "$REQ_RATE" != "null" ]; then
+                REQ_RATE_FMT=$(echo "$REQ_RATE" | xargs printf "%.2f" 2>/dev/null || echo "$REQ_RATE")
                 echo "  - **Request Rate:** ${REQ_RATE_FMT} req/s" >> $GITHUB_STEP_SUMMARY
               fi
               
@@ -153,11 +153,4 @@ jobs:
           name: load-test-results-${{ inputs.environment }}
           path: load-test/results/*.json
           retention-days: 10
-      
-      # Fail job if thresholds not met
-      - name: Check Thresholds
-        run: |
-          # k6 handles thresholds - if they fail, k6 exits with non-zero code
-          # This step is just for additional reporting
-          echo "Threshold checks completed (handled by k6)"
 
