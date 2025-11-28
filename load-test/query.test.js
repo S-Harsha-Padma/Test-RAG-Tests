@@ -85,9 +85,7 @@ const indexes = [
 
 // Setup function runs once before load test starts
 export function setup() {
-  console.log('🔧 Setup: Validating configuration...');
   console.log(`   APIM Endpoint: ${APIM_ENDPOINT}`);
-  console.log('✅ Configuration valid, starting load test...');
   return { startTime: new Date().toISOString() };
 }
 
@@ -108,7 +106,7 @@ export default function () {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${IMS_TOKEN}`,
     },
-    tags: { type: 'query' },  // Tag for metric filtering
+    tags: { type: 'query' },
   };
 
   // Execute the query
@@ -168,7 +166,7 @@ export default function () {
   });
 
   // Track token usage if available
-  if (response.status === 200 || response.status === 429) {
+  if (response.status === 200) {
     try {
       const body = response.json();
       if (body.usage && body.usage.tokensUsed) {
