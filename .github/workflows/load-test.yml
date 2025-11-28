@@ -50,6 +50,19 @@ jobs:
       - name: Get IMS Token
         id: ims-token
         run: |
+          # OPTION 1: Use personal token if provided (premium tier: 1000 calls/min)
+          if [ -n "${{ secrets.IMS_TOKEN_PERSONAL }}" ]; then
+            echo "🎯 Using personal Adobe token (premium tier: 1000 calls/min)"
+            echo "✅ No rate limit issues expected"
+            TOKEN="${{ secrets.IMS_TOKEN_PERSONAL }}"
+            echo "::add-mask::$TOKEN"
+            echo "token=$TOKEN" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "⚠️  No IMS_TOKEN_PERSONAL found - using service credentials (free tier: 10 calls/min)"
+          echo "💡 To avoid rate limits, add IMS_TOKEN_PERSONAL secret from: aio auth login --bare"
+          echo ""
           echo "🔍 Debug Info:"
           echo "  - Selected environment: ${{ inputs.environment }}"
           echo "  - Environment context: ${{ github.environment }}"
@@ -88,20 +101,33 @@ jobs:
           echo "Fetching token from: $IMS_URL"
           
           # Get token using selected credentials
-          TOKEN=$(curl -s -X POST "$IMS_URL" \
-            -d "grant_type=client_credentials" \
-            -d "client_id=$CLIENT_ID" \
-            -d "client_secret=$CLIENT_SECRET" \
-            -d "scope=openid,AdobeID" | jq -r '.access_token')
+          # TOKEN=$(curl -s -X POST "$IMS_URL" \
+          #   -d "grant_type=client_credentials" \
+          #   -d "client_id=$CLIENT_ID" \
+          #   -d "client_secret=$CLIENT_SECRET" \
+          #   -d "scope=openid,AdobeID" | jq -r '.access_token')
           
-          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
-            echo "❌ Failed to get token from IMS"
-            exit 1
-          fi
+          # if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+          #   echo "❌ Failed to get token from IMS"
+          #   exit 1
+          # fi
           
-          echo "✅ Token obtained successfully"
-          echo "::add-mask::$TOKEN"
-          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+          # echo "✅ Token obtained successfully"
+          # echo "::add-mask::$TOKEN"
+          # echo "token=$TOKEN" >> $GITHUB_OUTPUT
+          
+          # OAuth S2S disabled - you MUST set IMS_TOKEN_PERSONAL in GitHub secrets!
+          echo "❌ Error: No token available!"
+          echo "OAuth S2S is disabled (commented out above)"
+          echo ""
+          echo "To run load tests, you MUST add IMS_TOKEN_PERSONAL secret:"
+          echo "  1. Run locally: aio auth login --bare"
+          echo "  2. Copy the token output"
+          echo "  3. Go to: Settings → Secrets and variables → Actions"
+          echo "  4. Add secret: IMS_TOKEN_PERSONAL = (paste token)"
+          echo ""
+          echo "This gives you premium tier (1000 calls/min) for testing!"
+          exit 1
       
       # Run basic load test
       - name: Run Load Test on ${{ inputs.environment }}
