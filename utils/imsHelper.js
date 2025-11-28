@@ -19,8 +19,9 @@ export class ImsHelper {
     this.oauthClientId = process.env.IMS_CLIENT_ID || '';
     this.oauthClientSecret = process.env.IMS_CLIENT_SECRET || '';
     
-    // Cache file path (for GitHub Actions cache)
-    this.cacheFilePath = path.join(process.cwd(), '.ims-token-cache.json');
+    const environment = process.env.CACHE_ENV || 'local';
+    // Cache file path (for GitHub Actions cache) - environment-specific
+    this.cacheFilePath = path.join(process.cwd(), `.ims-token-${environment}-cache.json`);
   }
 
   /**
@@ -192,4 +193,3 @@ export class ImsHelper {
 }
 
 export default ImsHelper;
-
