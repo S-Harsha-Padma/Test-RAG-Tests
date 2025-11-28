@@ -205,13 +205,146 @@ describe('Security Hardening Tests', () => {
     }, 15000);
   });
 
+    /**
+   * Test 6: Usage Tracking in Azure Table Storage
+   * Tests: Layer 5 (Usage tracking) - verifies queries are logged
+   */
+    describe('Test 6: Usage Tracking', () => {
+      it('should log query usage to Azure Table Storage', async () => {
+        // Skip if Azure connection string not configured
+        const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+        
+        if (!connectionString) {
+          console.log('⚠️  Test 8 Skipped: AZURE_STORAGE_CONNECTION_STRING not set');
+          return;
+        }
+  
+        try {
+          // Make a unique query to track
+          const uniqueQuery = `test query for tracking ${Date.now()}`;
+          const { response, data } = await makeQuery(uniqueQuery, {
+            token: premiumToken,
+            count: 1,
+          });
+  
+          expect(response.status).toBe(200);
+          expect(data.success).toBe(true);
+          
+          const tokensUsed = data.usage?.tokensUsed || 0;
+          console.log(`✅ Query executed successfully`);
+          console.log(`   - Tokens used: ${tokensUsed}`);
+          console.log(`   - Unique query: "${uniqueQuery}"`);
+  
+          // Wait for Azure to process the write (Table Storage eventual consistency)
+          console.log('   - Waiting 3s for Azure Table Storage...');
+          await new Promise(resolve => setTimeout(resolve, 3000));
+  
+          // Query TokenUsage table to verify logging
+          const tableClient = TableClient.fromConnectionString(
+            connectionString,
+            'TokenUsage'
+          );
+  
+          // Get recent entries (last 10 minutes)
+          const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+          let found = false;
+          let matchedEntry = null;
+          let entriesChecked = 0;
+  
+          console.log('   - Querying TokenUsage table...');
+  
+          // Query recent entries
+          const entities = tableClient.listEntities({
+            queryOptions: {
+              filter: `Timestamp ge datetime'${tenMinutesAgo.toISOString()}'`,
+            },
+          });
+  
+          for await (const entity of entities) {
+            entriesChecked++;
+            // Check if this entry matches our unique query
+            if (entity.query && entity.query.includes(uniqueQuery)) {
+              found = true;
+              matchedEntry = entity;
+              break;
+            }
+          }
+  
+          console.log(`Checked ${entriesChecked} recent entries`);
+  
+          if (!found) {
+            console.warn('Query not found in TokenUsage table');
+          }
+  
+          expect(found).toBe(true);
+          
+          if (matchedEntry) {
+            console.log('Test 8 Passed: Usage tracking verified in TokenUsage table');
+            console.log(`- Query logged: "${matchedEntry.query.substring(0, 60)}"`);
+            console.log(`- Tokens recorded: ${matchedEntry.tokensUsed || 'N/A'}`);
+            console.log(`- User tier: ${matchedEntry.tier || 'N/A'}`);
+            console.log(`- User email: ${matchedEntry.email || 'N/A'}`);
+            console.log(`- Index: ${matchedEntry.indexName || 'N/A'}`);
+          }
+  
+          // Also check MonthlyQuotas table
+          console.log('- Checking MonthlyQuotas table...');
+          const quotaClient = TableClient.fromConnectionString(
+            connectionString,
+            'MonthlyQuotas'
+          );
+  
+          const quotaEntries = quotaClient.listEntities({
+            queryOptions: { top: 10 },
+          });
+  
+          let quotaFound = false;
+          let quotaCount = 0;
+          const quotaDetails = [];
+          
+          for await (const entity of quotaEntries) {
+            quotaFound = true;
+            quotaCount++;
+            
+            // Collect details for display (matching Azure CLI output format)
+            quotaDetails.push({
+              partitionKey: entity.partitionKey || 'N/A',
+              rowKey: entity.rowKey || 'N/A',
+              email: entity.email || entity.userId || 'N/A',
+              tier: entity.tier || 'N/A',
+              tokensUsed: entity.tokensUsed || 0,
+              monthlyLimit: entity.monthlyLimit || 'N/A',
+            });
+          }
+  
+          if (!quotaFound) {
+            console.warn('   - No entries in MonthlyQuotas table yet');
+            console.warn('This might indicate backend is not tracking quotas');
+          } else {
+            console.log(`   - MonthlyQuotas table tracking active (${quotaCount} entries)`);
+            
+            quotaDetails.slice(0, 5).forEach((quota, index) => {
+              console.log(`   │ User ${index + 1}: ${quota.email.padEnd(45)} │`);
+              console.log(`   │   - Tier: ${quota.tier.padEnd(47)} │`);
+              console.log(`   │   - Tokens Used: ${String(quota.tokensUsed).padEnd(39)} │`);
+              console.log(`   │   - Monthly Limit: ${String(quota.monthlyLimit).padEnd(37)} │`);
+            });
+          }
+  
+        } catch (error) {
+          console.error('Test 8 Failed:', error.message);
+          console.error(`   Stack: ${error.stack}`);
+          throw error;
+        }
+      }, 35000);
+    });
 
   /**
-   * Test 6: Rate Limiting (Layer 6 - via APIM policy)
+   * Test 7: Rate Limiting (Layer 6 - via APIM policy)
    * Tests: Rate limit enforcement
    * Uses OAuth S2S token (free tier: 10 calls/min) to trigger rate limits
    */
-  describe('Test 6: Rate Limiting', () => {
+  describe('Test 7: Rate Limiting', () => {
     it('should enforce rate limits with free tier token', async () => {
       // Use free tier token if available, otherwise skip
       const testToken = freeTierToken || imsToken;
@@ -269,139 +402,5 @@ describe('Security Hardening Tests', () => {
       }
     }, 60000);
   });
-  /**
-   * Test 8: Usage Tracking in Azure Table Storage
-   * Tests: Layer 5 (Usage tracking) - verifies queries are logged
-   */
-  describe('Test 7: Usage Tracking', () => {
-    it('should log query usage to Azure Table Storage', async () => {
-      // Skip if Azure connection string not configured
-      const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
-      
-      if (!connectionString) {
-        console.log('⚠️  Test 8 Skipped: AZURE_STORAGE_CONNECTION_STRING not set');
-        return;
-      }
-
-      try {
-        // Make a unique query to track
-        const uniqueQuery = `test query for tracking ${Date.now()}`;
-        const { response, data } = await makeQuery(uniqueQuery, {
-          token: premiumToken,
-          count: 1,
-        });
-
-        expect(response.status).toBe(200);
-        expect(data.success).toBe(true);
-        
-        const tokensUsed = data.usage?.tokensUsed || 0;
-        console.log(`✅ Query executed successfully`);
-        console.log(`   - Tokens used: ${tokensUsed}`);
-        console.log(`   - Unique query: "${uniqueQuery}"`);
-
-        // Wait for Azure to process the write (Table Storage eventual consistency)
-        console.log('   - Waiting 3s for Azure Table Storage...');
-        await new Promise(resolve => setTimeout(resolve, 3000));
-
-        // Query TokenUsage table to verify logging
-        const tableClient = TableClient.fromConnectionString(
-          connectionString,
-          'TokenUsage'
-        );
-
-        // Get recent entries (last 10 minutes)
-        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-        let found = false;
-        let matchedEntry = null;
-        let entriesChecked = 0;
-
-        console.log('   - Querying TokenUsage table...');
-
-        // Query recent entries
-        const entities = tableClient.listEntities({
-          queryOptions: {
-            filter: `Timestamp ge datetime'${tenMinutesAgo.toISOString()}'`,
-          },
-        });
-
-        for await (const entity of entities) {
-          entriesChecked++;
-          // Check if this entry matches our unique query
-          if (entity.query && entity.query.includes(uniqueQuery)) {
-            found = true;
-            matchedEntry = entity;
-            break;
-          }
-        }
-
-        console.log(`Checked ${entriesChecked} recent entries`);
-
-        if (!found) {
-          console.warn('Query not found in TokenUsage table');
-        }
-
-        expect(found).toBe(true);
-        
-        if (matchedEntry) {
-          console.log('Test 8 Passed: Usage tracking verified in TokenUsage table');
-          console.log(`- Query logged: "${matchedEntry.query.substring(0, 60)}"`);
-          console.log(`- Tokens recorded: ${matchedEntry.tokensUsed || 'N/A'}`);
-          console.log(`- User tier: ${matchedEntry.tier || 'N/A'}`);
-          console.log(`- User email: ${matchedEntry.email || 'N/A'}`);
-          console.log(`- Index: ${matchedEntry.indexName || 'N/A'}`);
-        }
-
-        // Also check MonthlyQuotas table
-        console.log('- Checking MonthlyQuotas table...');
-        const quotaClient = TableClient.fromConnectionString(
-          connectionString,
-          'MonthlyQuotas'
-        );
-
-        const quotaEntries = quotaClient.listEntities({
-          queryOptions: { top: 10 },
-        });
-
-        let quotaFound = false;
-        let quotaCount = 0;
-        const quotaDetails = [];
-        
-        for await (const entity of quotaEntries) {
-          quotaFound = true;
-          quotaCount++;
-          
-          // Collect details for display (matching Azure CLI output format)
-          quotaDetails.push({
-            partitionKey: entity.partitionKey || 'N/A',
-            rowKey: entity.rowKey || 'N/A',
-            email: entity.email || entity.userId || 'N/A',
-            tier: entity.tier || 'N/A',
-            tokensUsed: entity.tokensUsed || 0,
-            monthlyLimit: entity.monthlyLimit || 'N/A',
-          });
-        }
-
-        if (!quotaFound) {
-          console.warn('   - No entries in MonthlyQuotas table yet');
-          console.warn('This might indicate backend is not tracking quotas');
-        } else {
-          console.log(`   - MonthlyQuotas table tracking active (${quotaCount} entries)`);
-          
-          quotaDetails.slice(0, 5).forEach((quota, index) => {
-            console.log(`   │ User ${index + 1}: ${quota.email.padEnd(45)} │`);
-            console.log(`   │   - Tier: ${quota.tier.padEnd(47)} │`);
-            console.log(`   │   - Tokens Used: ${String(quota.tokensUsed).padEnd(39)} │`);
-            console.log(`   │   - Monthly Limit: ${String(quota.monthlyLimit).padEnd(37)} │`);
-          });
-        }
-
-      } catch (error) {
-        console.error('Test 8 Failed:', error.message);
-        console.error(`   Stack: ${error.stack}`);
-        throw error;
-      }
-    }, 35000);
-  });
-
 });
 
