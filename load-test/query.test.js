@@ -31,9 +31,11 @@ const tokensUsed = new Counter('tokens_used');
 export const options = {
   // Stages simulate realistic user load - target 1000 req/min with 100 users
   stages: [
-    { duration: '30s', target: 1 },
-    { duration: '30s', target: 2 },
-    { duration: '30s', target: 0 },
+    { duration: '2m', target: 1 },   // 1 user = ~6-8 req/min (under 10/min limit)
+    { duration: '1m', target: 0 },
+    // { duration: '30s', target: 1 },
+    // { duration: '30s', target: 2 },
+    // { duration: '30s', target: 0 },
     // { duration: '1m', target: 10 },   // Warm up: ramp to 10 users
     // { duration: '1m', target: 50 },   // Ramp up: scale to 50 users
     // { duration: '3m', target: 100 },  // Peak load: 100 concurrent users
