@@ -215,7 +215,6 @@ function textSummary(data, options) {
   const p95 = data.metrics?.http_req_duration?.values?.['p(95)'] || 0;
   const failedRate = data.metrics?.http_req_failed?.values?.rate || 0;
   const errorRate = data.metrics?.errors?.values?.rate || 0;
-  const checksRate = data.metrics?.checks?.values?.rate || 0;
   const tokensUsed = data.metrics?.tokens_used?.values?.count || 0;
   const avgTokens = totalReqs > 0 ? tokensUsed / totalReqs : 0;
   
@@ -233,7 +232,6 @@ ${indent}  - P95: ${p95.toFixed(2)}ms
 ${indent}
 ${indent}Success Rate: ${((1 - failedRate) * 100).toFixed(2)}%
 ${indent}Error Rate: ${(errorRate * 100).toFixed(2)}%
-${indent}Checks Passed: ${(checksRate * 100).toFixed(2)}%
 ${indent}
 ${indent}Custom Metrics:
 ${indent}  - Total Tokens Used: ${tokensUsed}
