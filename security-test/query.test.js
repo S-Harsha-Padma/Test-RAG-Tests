@@ -30,6 +30,7 @@ beforeAll(async () => {
     console.log('Premium tier IMS token obtained');
   } catch (error) {
     console.warn('Could not get premium tier token - some tests may fail');
+    console.warn(`Error: ${error.message}`);
   }
 
   // Get OAuth S2S token for rate limiting test (free tier - 10 calls/min)
@@ -50,7 +51,7 @@ beforeAll(async () => {
 });
 
 describe('Security Hardening Tests', () => {
-  
+
   /**
    * Test 1: Valid Request via APIM (Should Work)
    * Tests: All 5 layers pass
@@ -66,14 +67,14 @@ describe('Security Hardening Tests', () => {
       expect(data.success).toBe(true);
       expect(data.results).toBeDefined();
       expect(Array.isArray(data.results)).toBe(true);
-      
+
       // Verify usage tracking
       expect(data.usage).toBeDefined();
       expect(data.usage.tokensUsed).toBeGreaterThan(0);
       expect(data.usage.monthlyLimit).toBeDefined();
       expect(data.usage.tier).toBeDefined();
       expect(data.usage.tokensRemaining).toBeDefined();
-      
+
       console.log('Test 1 Passed: Valid request successful');
       console.log(`   - Tokens used: ${data.usage.tokensUsed}`);
       console.log(`   - User tier: ${data.usage.tier}`);
@@ -98,7 +99,7 @@ describe('Security Hardening Tests', () => {
 
       // Should be blocked by 403 Forbidden
       expect(response.status).toBe(403);
-      
+
       // Azure Function might return HTML instead of JSON for 403
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
@@ -130,7 +131,7 @@ describe('Security Hardening Tests', () => {
       expect(response.status).toBe(401);
       expect(data.error).toBeDefined();
       expect(data.message).toContain('token');
-      
+
       console.log('Test 3 Passed: Missing token rejected');
       console.log(`   - Status: ${response.status}`);
       console.log(`   - Message: ${data.message}`);
@@ -150,19 +151,19 @@ describe('Security Hardening Tests', () => {
 
       // Check for security headers
       const headers = Object.fromEntries(response.headers);
-      
+
       console.log('Test 6 Completed: Security headers check');
       console.log(`   - Status: ${response.status}`);
       console.log(`   - Headers present: ${Object.keys(headers).length}`);
-      
+
       // Log important security headers if present
       const securityHeaders = [
         'x-content-type-options',
         'x-frame-options',
         'content-security-policy',
-        'strict-transport-security'
+        'strict-transport-security',
       ];
-      
+
       securityHeaders.forEach(header => {
         if (headers[header]) {
           console.log(`   - ${header}: ${headers[header]}`);
@@ -182,22 +183,22 @@ describe('Security Hardening Tests', () => {
         token: premiumToken,
         count: 5,
       });
-      
+
       // Should return error but not leak sensitive information
       if (!data.success) {
         expect(data.error).toBeDefined();
-        
+
         // Error message should not contain sensitive data
         const errorStr = JSON.stringify(data).toLowerCase();
         expect(errorStr).not.toContain('password');
         expect(errorStr).not.toContain('secret');
         expect(errorStr).not.toContain('connection');
         expect(errorStr).not.toContain('stack trace');
-        
+
         console.log('Test 7 Passed: Safe error handling');
         console.log(`   - Error type: ${data.error}`);
         console.log(`   - Message: ${data.message || data.error}`);
-        console.log(`   - No sensitive data leaked ✓`);
+        console.log('   - No sensitive data leaked ✓');
       } else {
         // If query succeeded, that's also fine
         console.log('Test 7 Passed: Query succeeded (empty query handled gracefully)');
@@ -205,139 +206,139 @@ describe('Security Hardening Tests', () => {
     }, 15000);
   });
 
-    /**
+  /**
    * Test 6: Usage Tracking in Azure Table Storage
    * Tests: Layer 5 (Usage tracking) - verifies queries are logged
    */
-    describe('Test 6: Usage Tracking', () => {
-      it('should log query usage to Azure Table Storage', async () => {
-        // Skip if Azure connection string not configured
-        const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
-        
-        if (!connectionString) {
-          console.log('Test 8 Skipped: AZURE_STORAGE_CONNECTION_STRING not set');
-          return;
+  describe('Test 6: Usage Tracking', () => {
+    it('should log query usage to Azure Table Storage', async () => {
+      // Skip if Azure connection string not configured
+      const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+
+      if (!connectionString) {
+        console.log('Test 8 Skipped: AZURE_STORAGE_CONNECTION_STRING not set');
+        return;
+      }
+
+      try {
+        // Make a unique query to track
+        const uniqueQuery = `test query for tracking ${Date.now()}`;
+        const { response, data } = await makeQuery(uniqueQuery, {
+          token: premiumToken,
+          count: 1,
+        });
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+
+        const tokensUsed = data.usage?.tokensUsed || 0;
+        console.log('Query executed successfully');
+        console.log(`   - Tokens used: ${tokensUsed}`);
+        console.log(`   - Unique query: "${uniqueQuery}"`);
+
+        // Wait for Azure to process the write (Table Storage eventual consistency)
+        console.log('   - Waiting 3s for Azure Table Storage...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        // Query TokenUsage table to verify logging
+        const tableClient = TableClient.fromConnectionString(
+          connectionString,
+          'TokenUsage',
+        );
+
+        // Get recent entries (last 10 minutes)
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+        let found = false;
+        let matchedEntry = null;
+        let entriesChecked = 0;
+
+        console.log('   - Querying TokenUsage table...');
+
+        // Query recent entries
+        const entities = tableClient.listEntities({
+          queryOptions: {
+            filter: `Timestamp ge datetime'${tenMinutesAgo.toISOString()}'`,
+          },
+        });
+
+        for await (const entity of entities) {
+          entriesChecked++;
+          // Check if this entry matches our unique query
+          if (entity.query && entity.query.includes(uniqueQuery)) {
+            found = true;
+            matchedEntry = entity;
+            break;
+          }
         }
-  
-        try {
-          // Make a unique query to track
-          const uniqueQuery = `test query for tracking ${Date.now()}`;
-          const { response, data } = await makeQuery(uniqueQuery, {
-            token: premiumToken,
-            count: 1,
-          });
-  
-          expect(response.status).toBe(200);
-          expect(data.success).toBe(true);
-          
-          const tokensUsed = data.usage?.tokensUsed || 0;
-          console.log(`Query executed successfully`);
-          console.log(`   - Tokens used: ${tokensUsed}`);
-          console.log(`   - Unique query: "${uniqueQuery}"`);
-  
-          // Wait for Azure to process the write (Table Storage eventual consistency)
-          console.log('   - Waiting 3s for Azure Table Storage...');
-          await new Promise(resolve => setTimeout(resolve, 3000));
-  
-          // Query TokenUsage table to verify logging
-          const tableClient = TableClient.fromConnectionString(
-            connectionString,
-            'TokenUsage'
-          );
-  
-          // Get recent entries (last 10 minutes)
-          const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-          let found = false;
-          let matchedEntry = null;
-          let entriesChecked = 0;
-  
-          console.log('   - Querying TokenUsage table...');
-  
-          // Query recent entries
-          const entities = tableClient.listEntities({
-            queryOptions: {
-              filter: `Timestamp ge datetime'${tenMinutesAgo.toISOString()}'`,
-            },
-          });
-  
-          for await (const entity of entities) {
-            entriesChecked++;
-            // Check if this entry matches our unique query
-            if (entity.query && entity.query.includes(uniqueQuery)) {
-              found = true;
-              matchedEntry = entity;
-              break;
-            }
-          }
-  
-          console.log(`Checked ${entriesChecked} recent entries`);
-  
-          if (!found) {
-            console.warn('Query not found in TokenUsage table');
-          }
-  
-          expect(found).toBe(true);
-          
-          if (matchedEntry) {
-            console.log('Test 8 Passed: Usage tracking verified in TokenUsage table');
-            console.log(`- Query logged: "${matchedEntry.query.substring(0, 60)}"`);
-            console.log(`- Tokens recorded: ${matchedEntry.tokensUsed || 'N/A'}`);
-            console.log(`- User tier: ${matchedEntry.tier || 'N/A'}`);
-            console.log(`- User email: ${matchedEntry.email || 'N/A'}`);
-            console.log(`- Index: ${matchedEntry.indexName || 'N/A'}`);
-          }
-  
-          // Also check MonthlyQuotas table
-          console.log('- Checking MonthlyQuotas table...');
-          const quotaClient = TableClient.fromConnectionString(
-            connectionString,
-            'MonthlyQuotas'
-          );
-  
-          const quotaEntries = quotaClient.listEntities({
-            queryOptions: { top: 10 },
-          });
-  
-          let quotaFound = false;
-          let quotaCount = 0;
-          const quotaDetails = [];
-          
-          for await (const entity of quotaEntries) {
-            quotaFound = true;
-            quotaCount++;
-            
-            // Collect details for display (matching Azure CLI output format)
-            quotaDetails.push({
-              partitionKey: entity.partitionKey || 'N/A',
-              rowKey: entity.rowKey || 'N/A',
-              email: entity.email || entity.userId || 'N/A',
-              tier: entity.tier || 'N/A',
-              tokensUsed: entity.tokensUsed || 0,
-              monthlyLimit: entity.monthlyLimit || 'N/A',
-            });
-          }
-  
-          if (!quotaFound) {
-            console.warn('   - No entries in MonthlyQuotas table yet');
-            console.warn('This might indicate backend is not tracking quotas');
-          } else {
-            console.log(`   - MonthlyQuotas table tracking active (${quotaCount} entries)`);
-            
-            quotaDetails.slice(0, 5).forEach((quota, index) => {
-              console.log(`   │ User ${index + 1}: ${quota.email.padEnd(45)} │`);
-              console.log(`   │   - Tier: ${quota.tier.padEnd(47)} │`);
-              console.log(`   │   - Tokens Used: ${String(quota.tokensUsed).padEnd(39)} │`);
-              console.log(`   │   - Monthly Limit: ${String(quota.monthlyLimit).padEnd(37)} │`);
-            });
-          }
-  
-        } catch (error) {
-          console.error('Test 8 Failed:', error.message);
-          console.error(`   Stack: ${error.stack}`);
-          throw error;
+
+        console.log(`Checked ${entriesChecked} recent entries`);
+
+        if (!found) {
+          console.warn('Query not found in TokenUsage table');
         }
-      }, 35000);
-    });
+
+        expect(found).toBe(true);
+
+        if (matchedEntry) {
+          console.log('Test 8 Passed: Usage tracking verified in TokenUsage table');
+          console.log(`- Query logged: "${matchedEntry.query.substring(0, 60)}"`);
+          console.log(`- Tokens recorded: ${matchedEntry.tokensUsed || 'N/A'}`);
+          console.log(`- User tier: ${matchedEntry.tier || 'N/A'}`);
+          console.log(`- User email: ${matchedEntry.email || 'N/A'}`);
+          console.log(`- Index: ${matchedEntry.indexName || 'N/A'}`);
+        }
+
+        // Also check MonthlyQuotas table
+        console.log('- Checking MonthlyQuotas table...');
+        const quotaClient = TableClient.fromConnectionString(
+          connectionString,
+          'MonthlyQuotas',
+        );
+
+        const quotaEntries = quotaClient.listEntities({
+          queryOptions: { top: 10 },
+        });
+
+        let quotaFound = false;
+        let quotaCount = 0;
+        const quotaDetails = [];
+
+        for await (const entity of quotaEntries) {
+          quotaFound = true;
+          quotaCount++;
+
+          // Collect details for display (matching Azure CLI output format)
+          quotaDetails.push({
+            partitionKey: entity.partitionKey || 'N/A',
+            rowKey: entity.rowKey || 'N/A',
+            email: entity.email || entity.userId || 'N/A',
+            tier: entity.tier || 'N/A',
+            tokensUsed: entity.tokensUsed || 0,
+            monthlyLimit: entity.monthlyLimit || 'N/A',
+          });
+        }
+
+        if (!quotaFound) {
+          console.warn('   - No entries in MonthlyQuotas table yet');
+          console.warn('This might indicate backend is not tracking quotas');
+        } else {
+          console.log(`   - MonthlyQuotas table tracking active (${quotaCount} entries)`);
+
+          quotaDetails.slice(0, 5).forEach((quota, index) => {
+            console.log(`   │ User ${index + 1}: ${quota.email.padEnd(45)} │`);
+            console.log(`   │   - Tier: ${quota.tier.padEnd(47)} │`);
+            console.log(`   │   - Tokens Used: ${String(quota.tokensUsed).padEnd(39)} │`);
+            console.log(`   │   - Monthly Limit: ${String(quota.monthlyLimit).padEnd(37)} │`);
+          });
+        }
+
+      } catch (error) {
+        console.error('Test 8 Failed:', error.message);
+        console.error(`   Stack: ${error.stack}`);
+        throw error;
+      }
+    }, 35000);
+  });
 
   /**
    * Test 7: Rate Limiting (Layer 6 - via APIM policy)
@@ -347,13 +348,13 @@ describe('Security Hardening Tests', () => {
   describe('Test 7: Rate Limiting', () => {
     it('should enforce rate limits with free tier token', async () => {
       // Use free tier token if available, otherwise skip
-      const testToken = freeTierToken || imsToken;
+      const testToken = freeTierToken;
       const tierType = freeTierToken ? 'free tier (10 calls/min)' : 'premium tier (1000 calls/min)';
-      
+
       console.log(`Testing with ${tierType}`);
-      
+
       if (!freeTierToken) {
-        console.warn('⚠️  Free tier token not available - this test may not trigger rate limits');
+        console.warn('Free tier token not available - this test may not trigger rate limits');
         console.warn('   Set IMS_CLIENT_ID and IMS_CLIENT_SECRET to test properly');
       }
 
@@ -365,19 +366,19 @@ describe('Security Hardening Tests', () => {
           makeQuery('rate limit test query', {
             token: testToken,
             count: 1,
-          })
+          }),
         );
       }
 
       const results = await Promise.all(requests);
       const statusCodes = results.map(r => r.response.status);
-      
+
       // Some requests should succeed, some should be rate limited (429)
       const rateLimited = statusCodes.filter(s => s === 429);
       const successful = statusCodes.filter(s => s === 200);
       const other = statusCodes.filter(s => s !== 429 && s !== 200);
-      
-      console.log('✅ Test 5 Completed: Rate limiting check');
+
+      console.log('Completed: Rate limiting check');
       console.log(`   - Token tier: ${tierType}`);
       console.log(`   - Total requests: ${results.length}`);
       console.log(`   - Successful (200): ${successful.length}`);
@@ -385,19 +386,19 @@ describe('Security Hardening Tests', () => {
       if (other.length > 0) {
         console.log(`   - Other errors: ${other.length} (${other.join(', ')})`);
       }
-      
+
       // If using free tier token, expect rate limits
       if (freeTierToken) {
         // Free tier: 10 calls/min, so 15 requests should trigger ~5 rate limits
         expect(rateLimited.length).toBeGreaterThan(0);
-        console.log('   - ✅ Rate limiting is working correctly');
+        console.log('Rate limiting is working correctly');
       } else {
         // Premium tier may not hit limits
         if (rateLimited.length > 0) {
-          console.log('   - ✅ Rate limiting is active (unexpected with premium tier)');
+          console.log(' Rate limiting is active (unexpected with premium tier)');
         } else {
-          console.log('   - ⚠️  No rate limits hit with premium tier (expected)');
-          console.log('   - 💡 Set IMS_CLIENT_ID and IMS_CLIENT_SECRET for proper testing');
+          console.log('No rate limits hit with premium tier (expected)');
+          console.log('Set IMS_CLIENT_ID and IMS_CLIENT_SECRET for proper testing');
         }
       }
     }, 60000);
