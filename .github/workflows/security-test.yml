@@ -63,7 +63,7 @@ jobs:
             echo "client_id=${{ secrets.CLIENT_ID_PROD }}" >> $GITHUB_OUTPUT
             echo "client_secret=${{ secrets.CLIENT_SECRET_PROD }}" >> $GITHUB_OUTPUT
             echo "ims_token_url=${{ vars.IMS_TOKEN_URL_PROD }}" >> $GITHUB_OUTPUT
-            echo "connection_string=${{ vars.AZURE_STORAGE_CONNECTION_STRING_PROD }}" >> $GITHUB_OUTPUT
+            echo "connection_string=${{ secrets.AZURE_STORAGE_CONNECTION_STRING_PROD }}" >> $GITHUB_OUTPUT
           else
             echo "apim_endpoint=${{ vars.APIM_ENDPOINT_STAGE }}" >> $GITHUB_OUTPUT
             echo "function_endpoint=${{ vars.FUNCTION_ENDPOINT_STAGE }}" >> $GITHUB_OUTPUT
@@ -71,7 +71,7 @@ jobs:
             echo "client_id=${{ secrets.CLIENT_ID_STAGE }}" >> $GITHUB_OUTPUT
             echo "client_secret=${{ secrets.CLIENT_SECRET_STAGE }}" >> $GITHUB_OUTPUT
             echo "ims_token_url=${{ vars.IMS_TOKEN_URL_STAGE }}" >> $GITHUB_OUTPUT
-            echo "connection_string=${{ vars.AZURE_STORAGE_CONNECTION_STRING_STAGE }}" >> $GITHUB_OUTPUT
+            echo "connection_string=${{ secrets.AZURE_STORAGE_CONNECTION_STRING_STAGE }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Run Security Tests
