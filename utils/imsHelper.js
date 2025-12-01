@@ -188,7 +188,26 @@ export class ImsHelper {
     if (!tokenData || !tokenData.expires_at) {
       return false;
     }
-    return Date.now() < tokenData.expires_at;
+    
+    const now = Date.now();
+    const expiresAt = tokenData.expires_at;
+    
+    // Check if expires_at is in the past
+    if (expiresAt <= now) {
+      return false;
+    }
+    
+    // Sanity check: expires_at should not be more than 48 hours in the future
+    // IMS tokens typically last 24 hours, so 48 hours is a reasonable max
+    const maxValidDuration = 48 * 60 * 60 * 1000; // 48 hours in milliseconds
+    const remainingTime = expiresAt - now;
+    
+    if (remainingTime > maxValidDuration) {
+      console.warn(`Token expiration looks invalid (${Math.floor(remainingTime / 60000)} minutes). Treating as expired.`);
+      return false;
+    }
+    
+    return true;
   }
 }
 
