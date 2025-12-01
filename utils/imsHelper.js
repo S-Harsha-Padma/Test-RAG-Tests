@@ -137,7 +137,8 @@ export class ImsHelper {
       const data = await response.json();
       
       // Add expiry timestamp (with 5 minute buffer for safety)
-      const expiresIn = data.expires_in || 86400; // Default 24 hours
+      // IMS v3 API returns expires_in in seconds
+      const expiresIn = data.expires_in || 86400; // Default 24 hours in seconds
       data.expires_at = Date.now() + ((expiresIn - 300) * 1000); // -5 min buffer
       
       console.log('New OAuth token obtained successfully');
@@ -203,7 +204,7 @@ export class ImsHelper {
     const remainingTime = expiresAt - now;
     
     if (remainingTime > maxValidDuration) {
-      console.warn(`Token expiration looks invalid (${Math.floor(remainingTime / 60000)} minutes). Treating as expired.`);
+      console.warn(`Token expiration looks invalid (${Math.floor(remainingTime / 60000)} minutes remaining).`);
       return false;
     }
     
