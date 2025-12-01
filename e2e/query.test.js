@@ -49,7 +49,7 @@ describe('Query Endpoint E2E Tests', () => {
   describe('AUTHENTICATION: IMS Token Validation', () => {
     test('Should reject request with invalid token', async () => {
       const { response, data } = await makeQuery('How to create webhooks?', {
-        token: 'invalid-token-12345', // Invalid token
+        token: 'invalid-token-12345',
         count: 2,
         indexName: 'commerce-extensibility-docs',
       });
