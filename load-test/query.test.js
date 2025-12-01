@@ -33,8 +33,6 @@ export const options = {
   stages: [
     { duration: '2m', target: 1 },   // 1 user = ~6-8 req/min (under 10/min limit)
     { duration: '1m', target: 0 },
-    // { duration: '30s', target: 1 },
-    // { duration: '30s', target: 2 },
     // { duration: '30s', target: 0 },
     // { duration: '1m', target: 10 },   // Warm up: ramp to 10 users
     // { duration: '1m', target: 50 },   // Ramp up: scale to 50 users
@@ -59,7 +57,7 @@ if (!APIM_ENDPOINT) {
 }
 
 if (!IMS_TOKEN) {
-  throw new Error('IMS_TOKEN is required. Run via "npm run test:load" which automatically fetches token.');
+  throw new Error('IMS_TOKEN is required. Run "npm run test:load" locally which automatically fetches token.');
 }
 
 // Sample queries representing realistic user behavior
@@ -70,10 +68,7 @@ const queries = [
   'REST API authentication',
   'Custom admin grids',
   'GraphQL schema extension',
-  'Payment gateway integration',
-  'Shipping method customization',
-  'Product import best practices',
-  'Cache management strategies',
+  'Payment gateway integration'
 ];
 
 // Sample indexes based on your setup
