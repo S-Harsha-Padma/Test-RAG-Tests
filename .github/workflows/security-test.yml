@@ -42,6 +42,16 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
+      - name: Restore IMS token cache
+        uses: actions/cache@v4
+        with:
+          path: .ims-token-${{ inputs.environment }}-cache.json
+          # Static cache key - expires when token is invalid (checked by imsHelper.js)
+          # Change the version number (v1) to force cache invalidation if needed
+          key: ims-token-${{ inputs.environment }}-${{ github.repository }}-v1
+          restore-keys: |
+            ims-token-${{ inputs.environment }}-${{ github.repository }}-
+
       - name: Select Environment Configuration
         id: config
         run: |
@@ -87,8 +97,9 @@ jobs:
           # Azure Storage connection string (for usage tracking test - Test 7)
           AZURE_STORAGE_CONNECTION_STRING: ${{ steps.config.outputs.connection_string }}
           
-          # CI flag
+          # CI flag and cache environment
           CI: true
+          CACHE_ENV: ${{ inputs.environment }}
         run: |
           npm run test:security
 
