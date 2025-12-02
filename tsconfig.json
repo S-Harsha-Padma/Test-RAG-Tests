@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "exclude": ["node_modules", "load-test"],
+  "compilerOptions": {
+    "baseUrl": "./",
+    "moduleResolution": "node",
+    "noImplicitAny": false,
+    "noEmitOnError": false,
+    "typeRoots": ["node_modules/@types"],
+    "outDir": "./dist",
+    "resolveJsonModule": true,
+    "lib": ["ES2022"],
+    "module": "commonjs",
+    "target": "ES2022",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}
+

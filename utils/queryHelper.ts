@@ -2,19 +2,25 @@
  * Query Helper - Helper functions for making RAG queries in tests
  */
 
-import fetch from 'node-fetch';
+interface QueryOptions {
+  token?: string | null;
+  authHeader?: string | null;
+  count?: number;
+  indexName?: string;
+  customHeaders?: Record<string, string>;
+}
+
+interface QueryResult {
+  response: globalThis.Response;
+  data: any;
+}
 
 /**
  * Make a query to the RAG endpoint with flexible authentication options
  *
- * @param {string} query - Search query
- * @param {Object} options - Optional parameters
- * @param {string|null} options.token - IMS authentication token (default: null = no auth header)
- * @param {string} options.authHeader - Custom Authorization header value (overrides token)
- * @param {number} options.count - Number of results (default: 3)
- * @param {string} options.indexName - Index to search (default: 'commerce-extensibility-docs')
- * @param {Object} options.customHeaders - Additional headers to add
- * @returns {Promise<{response: Response, data: Object}>} Response object and parsed JSON data
+ * @param query - Search query
+ * @param options - Optional parameters
+ * @returns Response object and parsed JSON data
  *
  * @example
  * // Normal authenticated query
@@ -32,7 +38,7 @@ import fetch from 'node-fetch';
  * // Query with empty auth header
  * makeQuery('webhooks', { authHeader: '' })
  */
-export default async function makeQuery(query, options = {}) {
+export default async function makeQuery(query: string, options: QueryOptions = {}): Promise<QueryResult> {
   const {
     token = null,
     authHeader = null,
@@ -49,7 +55,7 @@ export default async function makeQuery(query, options = {}) {
   const QUERY_ENDPOINT = `${APIM_ENDPOINT}/api/query`;
 
   // Build base headers
-  const headers = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...customHeaders,
   };
@@ -72,7 +78,7 @@ export default async function makeQuery(query, options = {}) {
   });
 
   // Parse response (handle empty/invalid JSON gracefully)
-  let data;
+  let data: any;
   const responseText = await response.text();
 
   try {
@@ -84,7 +90,7 @@ export default async function makeQuery(query, options = {}) {
       // Parse the text as JSON (works for both success and error responses)
       data = JSON.parse(responseText);
     }
-  } catch (error) {
+  } catch (error: any) {
     // JSON parsing failed - log the raw response for debugging
     console.error(`Failed to parse response as JSON for query: "${query}"`);
     throw new Error(`Invalid JSON response: ${error.message}`);
@@ -92,3 +98,4 @@ export default async function makeQuery(query, options = {}) {
 
   return { response, data };
 }
+

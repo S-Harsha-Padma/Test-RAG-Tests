@@ -6,14 +6,25 @@
  * - CI/CD: OAuth S2S (client credentials grant) with GitHub Actions caching
  */
 
-import fetch from 'node-fetch';
-import fs from 'fs';
-import path from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
 import { execSync } from 'child_process';
 
+interface TokenData {
+  access_token: string;
+  token_type?: string;
+  expires_in?: number;
+  expires_at?: number;
+}
+
 export class ImsHelper {
+  private imsUrl: string;
+  private oauthClientId: string;
+  private oauthClientSecret: string;
+  private cacheFilePath: string;
+
   constructor() {
-    this.imsUrl = process.env.IMS_TOKEN_URL;
+    this.imsUrl = process.env.IMS_TOKEN_URL || '';
     
     // OAuth S2S credentials (for CI/CD)
     this.oauthClientId = process.env.IMS_CLIENT_ID || '';
@@ -31,20 +42,17 @@ export class ImsHelper {
    * - Local: Adobe I/O CLI (aio auth login --bare)
    * - CI/CD: OAuth S2S with caching
    * 
-   * @returns {Promise<string>} Access token
+   * @returns Access token
    */
-  async getToken() {
-
+  async getToken(): Promise<string> {
     const isCI = process.env.GITHUB_ACTIONS || process.env.CI;
     
     if (isCI) {
       // CI/CD: Use OAuth S2S with caching
-      // eslint-disable-next-line no-console
       console.log('CI/CD environment detected - using OAuth S2S');
       return this.getOAuthToken();
     }
     // Local: Use aio CLI
-    // eslint-disable-next-line no-console
     console.log('Local environment - using aio CLI');
     return this.getLocalToken();
   }
@@ -52,10 +60,9 @@ export class ImsHelper {
   /**
    * Get token from local aio CLI
    * @private
-   * @returns {Promise<string>} Access token
+   * @returns Access token
    */
-  // eslint-disable-next-line class-methods-use-this
-  getLocalToken() {
+  getLocalToken(): string {
     try {
       const token = execSync('aio auth login --bare', { 
         encoding: 'utf-8',
@@ -68,7 +75,7 @@ export class ImsHelper {
       
       console.log('Token obtained from aio CLI successfully');
       return token;
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`Failed to get IMS token via aio CLI: ${error.message}\nMake sure you've run: aio auth login`);
     }
   }
@@ -76,14 +83,14 @@ export class ImsHelper {
   /**
    * Get OAuth S2S token using client credentials grant
    * Checks cache first, fetches new token if expired
-   * @returns {Promise<string>} Access token
+   * @returns Access token
    */
-  async getOAuthToken() {
+  async getOAuthToken(): Promise<string> {
     // Try to load cached token first
     const cachedToken = this.loadCachedToken();
     if (cachedToken && this.isTokenValid(cachedToken)) {
       console.log('Using cached token (still valid)');
-      const remainingMinutes = Math.floor((cachedToken.expires_at - Date.now()) / 60000);
+      const remainingMinutes = Math.floor((cachedToken.expires_at! - Date.now()) / 60000);
       console.log(`   Token expires in ${remainingMinutes} minutes`);
       return cachedToken.access_token;
     }
@@ -107,7 +114,7 @@ export class ImsHelper {
    * Fetch a new token from IMS
    * @private
    */
-  async fetchNewToken() {
+  private async fetchNewToken(): Promise<TokenData> {
     if (!this.oauthClientId || !this.oauthClientSecret) {
       throw new Error('OAuth credentials not configured. Set IMS_CLIENT_ID and IMS_CLIENT_SECRET in .env for local tests');
     }
@@ -129,12 +136,12 @@ export class ImsHelper {
       console.log('Response status:', response.status);
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData: any = await response.json();
         console.error('Error response:', JSON.stringify(errorData, null, 2));
         throw new Error(`OAuth token fetch failed (${response.status}): ${errorData.error_description || JSON.stringify(errorData)}`);
       }
 
-      const data = await response.json();
+      const data: any = await response.json();
       
       // Add expiry timestamp (with 5 minute buffer for safety)
       // IMS v3 API returns expires_in in seconds
@@ -144,8 +151,8 @@ export class ImsHelper {
       console.log('New OAuth token obtained successfully');
       console.log(`Token valid for ${Math.floor(expiresIn / 3600)} hours`);
       
-      return data;
-    } catch (error) {
+      return data as TokenData;
+    } catch (error: any) {
       console.error('Error getting OAuth token:', error.message);
       throw error;
     }
@@ -155,13 +162,13 @@ export class ImsHelper {
    * Load cached token from file
    * @private
    */
-  loadCachedToken() {
+  private loadCachedToken(): TokenData | null {
     try {
       if (fs.existsSync(this.cacheFilePath)) {
         const data = fs.readFileSync(this.cacheFilePath, 'utf8');
-        return JSON.parse(data);
+        return JSON.parse(data) as TokenData;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn('Failed to load cached token:', error.message);
     }
     return null;
@@ -171,11 +178,11 @@ export class ImsHelper {
    * Save token to cache file
    * @private
    */
-  saveCachedToken(tokenData) {
+  private saveCachedToken(tokenData: TokenData): void {
     try {
       fs.writeFileSync(this.cacheFilePath, JSON.stringify(tokenData, null, 2));
       console.log('Token cached for future workflow runs');
-    } catch (error) {
+    } catch (error: any) {
       console.warn('Failed to cache token:', error.message);
     }
   }
@@ -184,8 +191,7 @@ export class ImsHelper {
    * Check if token is still valid
    * @private
    */
-  // eslint-disable-next-line class-methods-use-this
-  isTokenValid(tokenData) {
+  private isTokenValid(tokenData: TokenData): boolean {
     if (!tokenData || !tokenData.expires_at) {
       return false;
     }
@@ -213,3 +219,4 @@ export class ImsHelper {
 }
 
 export default ImsHelper;
+

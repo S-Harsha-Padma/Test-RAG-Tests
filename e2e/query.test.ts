@@ -10,22 +10,16 @@
  * - CI/CD: OAuth S2S with IMS_CLIENT_ID and IMS_CLIENT_SECRET
  * - Local: Adobe I/O CLI (aio auth login --bare)
  *
- * Run with: npm run test:query
+ * Run with: npm run test:e2e
  */
 
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import {
-  describe, test, expect, beforeAll,
-} from '@jest/globals';
-import { ImsHelper } from '../utils/imsHelper.js';
-import makeQuery from '../utils/queryHelper.js';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+import { ImsHelper } from '../utils/imsHelper';
+import makeQuery from '../utils/queryHelper';
 
 // Load environment variables
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-dotenv.config({ path: join(__dirname, '..', '.env') });
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 // IMS Token - fetched dynamically via OAuth (CI/CD) or aio CLI (local)
 // NOT stored in .env file for security reasons
@@ -37,7 +31,7 @@ describe('Query Endpoint E2E Tests', () => {
     try {
       VALID_IMS_TOKEN = await imsHelper.getToken();
       console.log('Valid IMS token obtained for testing');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch IMS token:', error.message);
     }
   }, 30000); // 30 second timeout for token fetch
@@ -192,14 +186,14 @@ describe('Query Endpoint E2E Tests', () => {
 
         // Should return results, but with low relevance scores
         if (data.results.length > 0) {
-          const avgScore = data.results.reduce((sum, r) => sum + r.score, 0) / data.results.length;
+          const avgScore = data.results.reduce((sum: number, r: any) => sum + r.score, 0) / data.results.length;
 
           // Log for visibility
           console.log(`Invalid context query - avg score: ${avgScore.toFixed(4)}`);
           console.log(`Results returned: ${data.results.length}`);
 
           // Results should have lower relevance scores (typically < 0.5 for unrelated content)
-          data.results.forEach((result, idx) => {
+          data.results.forEach((result: any, idx: number) => {
             console.log(`Result ${idx + 1} score: ${result.score.toFixed(4)}`);
           });
         } else {
@@ -227,3 +221,4 @@ describe('Query Endpoint E2E Tests', () => {
     });
   });
 });
+
