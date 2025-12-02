@@ -3,7 +3,7 @@ name: E2E Tests for Stage
 on:
   push:
     branches:
-      - develop
+      - check
     paths:
       - 'e2e/**'
       - 'utils/**'
