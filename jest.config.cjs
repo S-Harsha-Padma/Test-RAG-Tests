@@ -2,6 +2,9 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   
+  // Timeout for tests (API calls can be slow)
+  testTimeout: 30000,
+  
   // Match test files
   testMatch: [
     '<rootDir>/e2e/**/*.test.ts',

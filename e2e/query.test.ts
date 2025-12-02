@@ -47,11 +47,11 @@ describe('Query Endpoint E2E Tests', () => {
         count: 2,
         indexName: 'commerce-extensibility-docs',
       });
-      
+
       expect(response.status).toBe(401);
       expect(data.error).toBe('invalid_token');
       expect(data.message).toContain('Invalid or expired IMS token');
-
+//
       console.log('Invalid token rejected');
     });
 
