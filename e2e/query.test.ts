@@ -51,7 +51,6 @@ describe('Query Endpoint E2E Tests', () => {
       expect(response.status).toBe(401);
       expect(data.error).toBe('invalid_token');
       expect(data.message).toContain('Invalid or expired IMS token');
-//
       console.log('Invalid token rejected');
     });
 

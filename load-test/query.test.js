@@ -1,19 +1,19 @@
 /**
  * k6 Load Test - Basic Search Query
  * Tests the /api/query endpoint with realistic search queries
- * 
+ *
  * TARGET: 100 concurrent users, ~1000 requests/minute
  * FORMULA: req/min = (users × 60) / avg_sleep_time
  *          1000 = (100 × 60) / 6 seconds
- * 
+ *
  * Authentication:
  *   - Local: Token fetched from aio CLI (aio auth login --bare)
  *   - CI/CD: Token fetched via OAuth S2S
  *   Uses get-token.js helper automatically
- * 
+ *
  * Run with npm:
  *   npm run test:load
- * 
+ *
  * Or directly with k6 (requires IMS_TOKEN):
  *   k6 run -e APIM_ENDPOINT=https://your-apim.azure-api.net -e IMS_TOKEN=your-token load-test/query.test.js
  */
@@ -42,7 +42,7 @@ export const options = {
     // { duration: '1m', target: 100 },  // Sustain: hold at 100 users
     // { duration: '2m', target: 0 },    // Ramp down: cool down
   ],
-  
+
   // Performance thresholds (test fails if these aren't met)
   thresholds: {
     'http_req_duration': ['p(95)<3000'],  // P95 latency < 3s
@@ -90,11 +90,11 @@ export function setup() {
 }
 
 export default function () {
-  
+
   // Select random query and index for realistic variation
   const query = queries[Math.floor(Math.random() * queries.length)];
   const indexName = indexes[Math.floor(Math.random() * indexes.length)];
-  
+
   const payload = JSON.stringify({
     query: query,
     count: 5,
@@ -114,7 +114,7 @@ export default function () {
   const response = http.post(
     `${APIM_ENDPOINT}/api/query`,
     payload,
-    params
+    params,
   );
   const duration = Date.now() - startTime;
 
@@ -172,10 +172,10 @@ export default function () {
       if (body.usage && body.usage.tokensUsed) {
         tokensUsed.add(body.usage.tokensUsed);
       }
-      
+
       // Debug: Log if results are missing even with 200 status
       if (!body.results) {
-        console.warn(`Status 200 but no results field. Response:`, JSON.stringify(body).substring(0, 200));
+        console.warn('Status 200 but no results field. Response:', JSON.stringify(body).substring(0, 200));
       }
     } catch (e) {
       console.error('Error parsing response:', e.message);
@@ -206,7 +206,7 @@ export function handleSummary(data) {
 
 function textSummary(data, options) {
   const indent = options.indent || '';
-  
+
   // Safe access to metrics with fallbacks
   const duration = (data.state?.testRunDurationMs || 0) / 1000;
   const totalReqs = data.metrics?.http_reqs?.values?.count || 0;
@@ -217,7 +217,7 @@ function textSummary(data, options) {
   const errorRate = data.metrics?.errors?.values?.rate || 0;
   const tokensUsed = data.metrics?.tokens_used?.values?.count || 0;
   const avgTokens = totalReqs > 0 ? tokensUsed / totalReqs : 0;
-  
+
   return `
 ${indent}Load Test Summary
 ${indent}================
