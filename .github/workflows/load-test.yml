@@ -53,40 +53,104 @@ jobs:
           k6 version
       
       # Get IMS token for authentication
+      # Priority: 1. Refresh Token (dynamic, 14-day validity, auto-rotates)
+      #           2. Personal Access Token (static, 24-hour validity)
       - name: Get IMS Token
         id: ims-token
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_TOKEN }}
         run: |
-          # Check for environment-specific personal token first
+          # Determine environment-specific variables
           if [ "${{ inputs.environment }}" = "prod" ]; then
-            if [ -n "${{ secrets.IMS_TOKEN_PERSONAL_PROD }}" ]; then
-              echo "Using personal Adobe token for PROD (premium tier)"
-              TOKEN="${{ secrets.IMS_TOKEN_PERSONAL_PROD }}"
-              echo "::add-mask::$TOKEN"
-              echo "token=$TOKEN" >> $GITHUB_OUTPUT
-              exit 0
-            fi
+            IMS_URL="https://ims-na1.adobelogin.com/ims/token/v3"
+            CLIENT_ID="aio-cli-console-auth"
+            REFRESH_TOKEN="${{ secrets.IMS_REFRESH_TOKEN_PROD }}"
+            PERSONAL_TOKEN="${{ secrets.IMS_TOKEN_PERSONAL_PROD }}"
+            REFRESH_SECRET_NAME="IMS_REFRESH_TOKEN_PROD"
           else
-            if [ -n "${{ secrets.IMS_TOKEN_PERSONAL_STAGE }}" ]; then
-              echo "Using personal Adobe token for STAGE (premium tier)"
-              TOKEN="${{ secrets.IMS_TOKEN_PERSONAL_STAGE }}"
+            IMS_URL="https://ims-na1-stg1.adobelogin.com/ims/token/v3"
+            CLIENT_ID="aio-cli-console-auth-stage"
+            REFRESH_TOKEN="${{ secrets.IMS_REFRESH_TOKEN_STAGE }}"
+            PERSONAL_TOKEN="${{ secrets.IMS_TOKEN_PERSONAL_STAGE }}"
+            REFRESH_SECRET_NAME="IMS_REFRESH_TOKEN_STAGE"
+          fi
+          
+          # Option 1: Try refresh token exchange (preferred - dynamic, 14-day validity)
+          if [ -n "$REFRESH_TOKEN" ]; then
+            echo "🔄 Exchanging refresh token for access token (${{ inputs.environment }})..."
+            
+            RESPONSE=$(curl -s -X POST "$IMS_URL" \
+              -H "Content-Type: application/x-www-form-urlencoded" \
+              -d "grant_type=refresh_token" \
+              -d "client_id=$CLIENT_ID" \
+              -d "refresh_token=$REFRESH_TOKEN")
+            
+            TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+            NEW_REFRESH=$(echo "$RESPONSE" | jq -r '.refresh_token')
+            
+            if [ -n "$TOKEN" ] && [ "$TOKEN" != "null" ]; then
               echo "::add-mask::$TOKEN"
               echo "token=$TOKEN" >> $GITHUB_OUTPUT
+              echo "✅ User access token obtained via refresh token (premium tier: 1000 calls/min)"
+              
+              # Auto-update the refresh token secret if we have GH_PAT_TOKEN
+              if [ -n "$NEW_REFRESH" ] && [ "$NEW_REFRESH" != "null" ]; then
+                echo "::add-mask::$NEW_REFRESH"
+                
+                if [ -n "$GH_TOKEN" ]; then
+                  echo "🔄 Auto-updating $REFRESH_SECRET_NAME with new refresh token..."
+                  
+                  # Use GitHub CLI to update the secret
+                  if gh secret set "$REFRESH_SECRET_NAME" --body "$NEW_REFRESH" 2>/dev/null; then
+                    echo "✅ Refresh token secret updated automatically!"
+                  else
+                    echo "⚠️ Could not auto-update secret. Manual update may be needed."
+                  fi
+                else
+                  echo "💡 Tip: Add GH_PAT_TOKEN secret (with repo scope) to auto-update refresh tokens"
+                fi
+              fi
               exit 0
+            else
+              echo "⚠️ Refresh token exchange failed. Response:"
+              echo "$RESPONSE" | jq '.' 2>/dev/null || echo "$RESPONSE"
+              echo ""
+              echo "Falling back to personal token..."
             fi
           fi
-  
-          echo "Error: No token available for ${{ inputs.environment }}!"
+          
+          # Option 2: Use personal access token (static, 24-hour validity)
+          if [ -n "$PERSONAL_TOKEN" ]; then
+            echo "🎯 Using personal Adobe token for ${{ inputs.environment }} (premium tier)"
+            echo "::add-mask::$PERSONAL_TOKEN"
+            echo "token=$PERSONAL_TOKEN" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # No token available
+          echo "❌ Error: No token available for ${{ inputs.environment }}!"
           echo ""
           echo "To run load tests, add one of these secrets:"
           echo ""
-          echo "Get Environment-specific token:"
+          echo "Option 1 (Recommended - Dynamic, auto-rotating):"
           if [ "${{ inputs.environment }}" = "prod" ]; then
-            echo "  - Secret name: IMS_TOKEN_PERSONAL_PROD"
+            echo "  - Secret: IMS_REFRESH_TOKEN_PROD"
           else
-            echo "  - Secret name: IMS_TOKEN_PERSONAL_STAGE"
+            echo "  - Secret: IMS_REFRESH_TOKEN_STAGE"
           fi
-          echo "  - To get token: run aio auth login --bare (using your ${{ inputs.environment }} Adobe account in local and use it in git secrets)"
-          echo "This gives you premium tier (1000 calls/min) for testing!"
+          echo "  - Get it: aio auth login --force --verbose"
+          echo "  - Copy the refresh_token from the output"
+          echo "  - Add GH_PAT_TOKEN secret for auto-rotation"
+          echo ""
+          echo "Option 2 (Static, 24-hour validity):"
+          if [ "${{ inputs.environment }}" = "prod" ]; then
+            echo "  - Secret: IMS_TOKEN_PERSONAL_PROD"
+          else
+            echo "  - Secret: IMS_TOKEN_PERSONAL_STAGE"
+          fi
+          echo "  - Get it: aio auth login --bare"
+          echo ""
+          echo "Both give you premium tier (1000 calls/min) for testing!"
           exit 1
       
       # Run basic load test
