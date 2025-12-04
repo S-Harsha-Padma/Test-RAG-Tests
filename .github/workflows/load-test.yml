@@ -81,7 +81,7 @@ jobs:
           fi
           
           # Call IMS Token API with Password Grant
-          RESPONSE=$(curl -s --request POST "${IMS_ENDPOINT}/ims/token/v3/" \
+          RESPONSE=$(curl -s --request POST "${IMS_ENDPOINT}" \
             --header 'Content-Type: application/x-www-form-urlencoded' \
             --data-urlencode 'grant_type=password' \
             --data-urlencode "username=${USER_EMAIL}" \
