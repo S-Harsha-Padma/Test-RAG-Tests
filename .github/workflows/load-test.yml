@@ -52,42 +52,57 @@ jobs:
           sudo apt-get install k6 -y
           k6 version
       
-      # Get IMS token for authentication
-      - name: Get IMS Token
+      # Get IMS token using Password Grant
+      # This logs in programmatically with user credentials - no stored tokens needed!
+      - name: Get IMS Token (Password Grant)
         id: ims-token
         run: |
-          # Check for environment-specific personal token first
+          echo "Fetching IMS token using Password Grant..."
+          
+          # Set environment-specific variables
           if [ "${{ inputs.environment }}" = "prod" ]; then
-            if [ -n "${{ secrets.IMS_TOKEN_PERSONAL_PROD }}" ]; then
-              echo "Using personal Adobe token for PROD (premium tier)"
-              TOKEN="${{ secrets.IMS_TOKEN_PERSONAL_PROD }}"
-              echo "::add-mask::$TOKEN"
-              echo "token=$TOKEN" >> $GITHUB_OUTPUT
-              exit 0
-            fi
+            IMS_ENDPOINT=${{ vars.IMS_TOKEN_URL_PROD }}
+            USER_EMAIL="${{ secrets.IMS_USER_EMAIL_PROD }}"
+            USER_PASSWORD="${{ secrets.IMS_USER_PASSWORD_PROD }}"
+            CLIENT_ID="${{ secrets.IMS_CLIENT_ID_PROD }}"
+            CLIENT_SECRET="${{ secrets.IMS_CLIENT_SECRET_PROD }}"
           else
-            if [ -n "${{ secrets.IMS_TOKEN_PERSONAL_STAGE }}" ]; then
-              echo "Using personal Adobe token for STAGE (premium tier)"
-              TOKEN="${{ secrets.IMS_TOKEN_PERSONAL_STAGE }}"
-              echo "::add-mask::$TOKEN"
-              echo "token=$TOKEN" >> $GITHUB_OUTPUT
-              exit 0
-            fi
+            IMS_ENDPOINT=${{ vars.IMS_TOKEN_URL_STAGE }}
+            USER_EMAIL="${{ secrets.IMS_USER_EMAIL_STAGE }}"
+            USER_PASSWORD="${{ secrets.IMS_USER_PASSWORD_STAGE }}"
+            CLIENT_ID="${{ secrets.IMS_CLIENT_ID_STAGE }}"
+            CLIENT_SECRET="${{ secrets.IMS_CLIENT_SECRET_STAGE }}"
           fi
-  
-          echo "Error: No token available for ${{ inputs.environment }}!"
-          echo ""
-          echo "To run load tests, add one of these secrets:"
-          echo ""
-          echo "Get Environment-specific token:"
-          if [ "${{ inputs.environment }}" = "prod" ]; then
-            echo "  - Secret name: IMS_TOKEN_PERSONAL_PROD"
-          else
-            echo "  - Secret name: IMS_TOKEN_PERSONAL_STAGE"
+          
+          # Validate required secrets
+          if [ -z "$USER_EMAIL" ] || [ -z "$USER_PASSWORD" ] || [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ]; then
+            echo "Missing required secrets for ${{ inputs.environment }}!"
+            exit 1
           fi
-          echo "  - To get token: run aio auth login --bare (using your ${{ inputs.environment }} Adobe account in local and use it in git secrets)"
-          echo "This gives you premium tier (1000 calls/min) for testing!"
-          exit 1
+          
+          # Call IMS Token API with Password Grant
+          RESPONSE=$(curl -s --request POST "${IMS_ENDPOINT}/ims/token/v3/" \
+            --header 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode 'grant_type=password' \
+            --data-urlencode "username=${USER_EMAIL}" \
+            --data-urlencode "password=${USER_PASSWORD}" \
+            --data-urlencode "client_id=${CLIENT_ID}" \
+            --data-urlencode "client_secret=${CLIENT_SECRET}" \
+            --data-urlencode 'scope=AdobeID,openid,read_organizations,additional_info.projectedProductContext,additional_info.roles,adobeio_api')
+          
+          # Extract access token
+          TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+          
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "Failed to get access token!"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+          
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+          echo "Access token obtained successfully (user: ${USER_EMAIL})"
+          echo "   This user gets premium tier rate limits (1000 calls/min)"
       
       # Run basic load test
       - name: Run Load Test on ${{ inputs.environment }}
