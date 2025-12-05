@@ -102,7 +102,7 @@ jobs:
           else
             echo "**Status: COMPLETED WITH ERRORS**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Note:** Backend scaling/load balancing is in progress." >> $GITHUB_STEP_SUMMARY
+            echo "**Note:** Backend scaling/load balancing will be handled in phase2." >> $GITHUB_STEP_SUMMARY
             echo "500 errors are expected during this phase." >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "The test ran successfully but thresholds were not met due to infrastructure work." >> $GITHUB_STEP_SUMMARY
