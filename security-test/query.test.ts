@@ -356,7 +356,7 @@ describe('Security Hardening Tests', () => {
       console.log('   NOTE: During pilot phase, all users are premium tier (1000 calls/min)');
 
       // Make a single request to verify tier header
-      const { response, data } = await makeQuery('rate limit verification', {
+      const { response, data } = await makeQuery('webhooks', {
         token: testToken,
         count: 1,
       });
@@ -368,21 +368,21 @@ describe('Security Hardening Tests', () => {
         const tier = (data as any).usage.tier;
         const limit = (data as any).usage.monthlyLimit;
         
-        console.log('   ✓ Rate limiting is configured');
-        console.log(`   - User tier: ${tier}`);
-        console.log(`   - Monthly limit: ${limit}`);
+        console.log('Rate limiting is configured');
+        console.log(`User tier: ${tier}`);
+        console.log(`Monthly limit: ${limit}`);
         
         // Verify tier is set (premium during pilot)
         expect(tier).toBeDefined();
         expect(['premium', 'standard', 'free']).toContain(tier);
       } else {
-        console.log('   ⚠ Usage info not returned - cannot verify tier');
+        console.log('Usage info not returned - cannot verify tier');
       }
 
       console.log('');
-      console.log('   📝 Full rate limit testing skipped during pilot phase');
-      console.log('   (All users are premium tier with 1000 calls/min)');
-      console.log('   Re-enable tier differentiation to test free tier rate limiting');
+      console.log(' Full rate limit testing skipped during pilot phase');
+      console.log('(All users are premium tier with 1000 calls/min)');
+      console.log('Re-enable tier differentiation to test free tier rate limiting');
     }, 30000);
   });
 });
