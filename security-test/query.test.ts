@@ -15,6 +15,7 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 const FUNCTION_ENDPOINT = process.env.FUNCTION_ENDPOINT || 'https://commerce-docs-dev-api.azurewebsites.net';
 
 let premiumToken: string; // Premium tier token (from aio CLI or env override)
+// eslint-disable-next-line no-unused-vars
 let freeTierToken: string; // Free tier token (from OAuth S2S)
 const imsHelper = new ImsHelper();
 
@@ -33,7 +34,7 @@ beforeAll(async () => {
   if (process.env.IMS_CLIENT_ID && process.env.IMS_CLIENT_SECRET) {
     try {
       // Force OAuth S2S even in local environment
-      freeTierToken = await imsHelper.getOAuthToken();
+      freeTierToken = await imsHelper.getOAuthToken(); // will be used once rate limit is implemented
       console.log('Free tier token obtained (OAuth S2S - 10 calls/min)');
     } catch (error: any) {
       console.warn('Could not get OAuth S2S token - rate limit test may be skipped');
@@ -303,7 +304,7 @@ describe('Security Hardening Tests', () => {
         }
 
         let quotaFound = false;
-        let quotaCount = quotaEntries.length;
+        const quotaCount = quotaEntries.length;
         const quotaDetails: any[] = [];
 
         if (quotaCount > 0) {
@@ -344,7 +345,7 @@ describe('Security Hardening Tests', () => {
   /**
    * Test 7: Rate Limiting (Layer 6 - via APIM policy)
    * Tests: Rate limit enforcement
-   * 
+   *
    * NOTE: During pilot phase, all users are set to premium tier (1000 calls/min)
    * This test verifies the tier header is set correctly without exhausting tokens
    */
@@ -367,11 +368,11 @@ describe('Security Hardening Tests', () => {
       if ((data as any).usage) {
         const tier = (data as any).usage.tier;
         const limit = (data as any).usage.monthlyLimit;
-        
+
         console.log('Rate limiting is configured');
         console.log(`User tier: ${tier}`);
         console.log(`Monthly limit: ${limit}`);
-        
+
         // Verify tier is set (premium during pilot)
         expect(tier).toBeDefined();
         expect(['premium', 'standard', 'free']).toContain(tier);
