@@ -1,0 +1,87 @@
+name: Test IMS OAuth Authentication
+
+on:
+  workflow_dispatch:  # Manual trigger only for testing
+
+jobs:
+  test-ims-auth:
+    name: Test IMS OAuth & Load Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | \
+            sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6 -y
+          k6 version
+
+      - name: Get IMS Access Token via Authorization Code
+        id: token
+        run: |
+          echo "Requesting IMS token via OAuth Authorization Code..."
+          
+          RESPONSE=$(curl -s -X POST "https://ims-na1-stg1.adobelogin.com/ims/token/v3" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "grant_type=authorization_code" \
+            -d "client_id=${{ secrets.CLIENTID_STAGE }}" \
+            -d "client_secret=${{ secrets.CLIENTSECRET_STAGE }}" \
+            -d "code=${{ secrets.AUTH_CODE_STAGE }}" \
+            -d "scope=system,openid,AdobeID,read_organizations")
+          
+          echo "Response received"
+          
+          TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+          
+          if [ "$TOKEN" == "null" ] || [ -z "$TOKEN" ]; then
+            echo "Failed to get access token"
+            echo "Full response: $RESPONSE"
+            exit 1
+          fi
+          
+          echo "::add-mask::$TOKEN"
+          echo "access_token=$TOKEN" >> $GITHUB_OUTPUT
+          echo "Got IMS token successfully!"
+
+      - name: Validate Token
+        run: |
+          echo "Validating IMS token..."
+          
+          # Check token is not empty
+          if [ -z "${{ steps.token.outputs.access_token }}" ]; then
+            echo "Token is empty"
+            exit 1
+          fi
+          
+          # Check token format (JWT has 3 parts separated by dots)
+          TOKEN_PARTS=$(echo "${{ steps.token.outputs.access_token }}" | tr '.' '\n' | wc -l)
+          if [ "$TOKEN_PARTS" -ne 3 ]; then
+            echo "Token format invalid (expected 3 parts, got $TOKEN_PARTS)"
+            exit 1
+          fi
+          
+          echo "Token format valid!"
+
+      - name: Run k6 Load Test
+        env:
+          APIM_ENDPOINT: "https://commerce-docs-dev-apim.azure-api.net/api/query"
+          IMS_TOKEN: ${{ steps.token.outputs.access_token }}
+        run: npm run test:load
+
