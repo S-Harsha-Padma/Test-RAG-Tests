@@ -1,7 +1,9 @@
 name: Test IMS OAuth Authentication
 
 on:
-  workflow_dispatch:  # Manual trigger only for testing
+  push:
+    branches:
+      - check
 
 jobs:
   test-ims-auth:
