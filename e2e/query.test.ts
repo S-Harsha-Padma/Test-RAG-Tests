@@ -80,6 +80,7 @@ describe('Query Endpoint E2E Tests', () => {
       console.log('Empty token rejected');
     });
   });
+  
 
   // =========================================================================
   // QUERY FUNCTIONALITY TESTS
