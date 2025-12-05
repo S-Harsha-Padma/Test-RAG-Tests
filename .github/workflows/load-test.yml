@@ -1,38 +1,20 @@
-name: Load Testing
+name: Load Testing (Stage)
 
 on:
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment to test'
-        required: true
-        default: 'dev'
-        type: choice
-        options:
-          - dev
-          - prod
 
 jobs:
   load-test:
-    name: Run k6 Load Tests - ${{ inputs.environment }}
+    name: Run k6 Load Tests - Stage
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}  # Use the selected environment (dev/prod)
+    environment: stage
     if: ${{ github.event_name == 'workflow_dispatch' }}
     
     steps:
-      - name: Determine Branch
-        id: branch
-        run: |
-          if [ "${{ inputs.environment }}" = "prod" ]; then
-            echo "ref=main" >> $GITHUB_OUTPUT
-          else
-            echo "ref=check" >> $GITHUB_OUTPUT
-          fi
-          
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.branch.outputs.ref }}
+          ref: develop
           
       # Install k6 binary
       - name: Install k6
@@ -51,21 +33,12 @@ jobs:
       - name: Get IMS Access Token via Authorization Code
         id: token
         run: |
-          echo "Requesting IMS token via OAuth Authorization Code..."
-          echo "Environment: ${{ inputs.environment }}"
+          echo "Requesting IMS token via OAuth Authorization Code (Stage)..."
           
-          # Set environment-specific variables
-          if [ "${{ inputs.environment }}" = "prod" ]; then
-            IMS_URL="${{ vars.IMS_TOKEN_URL_PROD }}"
-            CLIENT_ID="${{ secrets.CLIENTID_PROD }}"
-            CLIENT_SECRET="${{ secrets.CLIENTSECRET_PROD }}"
-            AUTH_CODE="${{ secrets.AUTH_CODE_PROD }}"
-          else
-            IMS_URL="${{ vars.IMS_TOKEN_URL_STAGE }}"
-            CLIENT_ID="${{ secrets.CLIENTID_STAGE }}"
-            CLIENT_SECRET="${{ secrets.CLIENTSECRET_STAGE }}"
-            AUTH_CODE="${{ secrets.AUTH_CODE_STAGE }}"
-          fi
+          IMS_URL="${{ vars.IMS_TOKEN_URL_STAGE }}"
+          CLIENT_ID="${{ secrets.CLIENTID_STAGE }}"
+          CLIENT_SECRET="${{ secrets.CLIENTSECRET_STAGE }}"
+          AUTH_CODE="${{ secrets.AUTH_CODE_STAGE }}"
           
           echo "IMS URL: $IMS_URL"
           echo "Client ID set: $([ -n "$CLIENT_ID" ] && echo 'YES' || echo 'NO')"
@@ -114,13 +87,13 @@ jobs:
       
       
       # Run basic load test
-      - name: Run Load Test on ${{ inputs.environment }}
+      - name: Run Load Test on Stage
         id: loadtest
-        continue-on-error: true  # Don't fail workflow - load balancing is in progress
+        continue-on-error: true  # Don't fail workflow - load balancing will be taken care in phase2
         env:
-          APIM_ENDPOINT: ${{ inputs.environment == 'prod' && vars.APIM_ENDPOINT_PROD || vars.APIM_ENDPOINT_STAGE }}
+          APIM_ENDPOINT: ${{ vars.APIM_ENDPOINT_STAGE }}
           IMS_TOKEN: ${{ steps.token.outputs.access_token }}
-          CACHE_ENV: ${{ inputs.environment }}  # For cache isolation
+          CACHE_ENV: stage  # For cache isolation
         run: npm run test:load
       
       # Analyze results
