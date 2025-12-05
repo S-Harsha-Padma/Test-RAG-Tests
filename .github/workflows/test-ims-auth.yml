@@ -14,15 +14,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
-
       - name: Install k6
         run: |
           sudo gpg -k
@@ -85,7 +76,7 @@ jobs:
         id: loadtest
         continue-on-error: true  # Don't fail workflow - load balancing is in progress
         env:
-          APIM_ENDPOINT: "https://commerce-docs-dev-apim.azure-api.net"
+          APIM_ENDPOINT: ${{ vars.APIM_ENDPOINT_STAGE }}
           # IMS_TOKEN: ${{ steps.token.outputs.access_token }}
           IMS_TOKEN: ${{ secrets.IMS_TOKEN_FREE_STAGE_DUMMY }}
         run: npm run test:load
