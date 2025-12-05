@@ -24,7 +24,7 @@ jobs:
           if [ "${{ inputs.environment }}" = "prod" ]; then
             echo "ref=main" >> $GITHUB_OUTPUT
           else
-            echo "ref=develop" >> $GITHUB_OUTPUT
+            echo "ref=check" >> $GITHUB_OUTPUT
           fi
           
       - name: Checkout code
