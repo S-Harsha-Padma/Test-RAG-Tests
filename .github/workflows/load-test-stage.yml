@@ -7,7 +7,6 @@ jobs:
   load-test:
     name: Run k6 Load Tests - Stage
     runs-on: ubuntu-latest
-    environment: stage
     if: ${{ github.event_name == 'workflow_dispatch' }}
     
     steps:
