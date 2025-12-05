@@ -16,7 +16,6 @@ jobs:
   load-test:
     name: Run k6 Load Tests - ${{ inputs.environment }}
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}  # Use the selected environment (dev/prod)
     if: ${{ github.event_name == 'workflow_dispatch' }}
     
     steps:

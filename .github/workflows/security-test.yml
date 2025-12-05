@@ -16,7 +16,6 @@ jobs:
   security-test:
     name: Run Security Tests for ${{ inputs.environment }}
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
     
     steps:
       - name: Determine Branch
@@ -69,17 +68,15 @@ jobs:
           if [ "$ENV" = "prod" ]; then
             echo "apim_endpoint=${{ vars.APIM_ENDPOINT_PROD }}" >> $GITHUB_OUTPUT
             echo "function_endpoint=${{ vars.FUNCTION_ENDPOINT_PROD }}" >> $GITHUB_OUTPUT
-            echo "ims_token=${{ secrets.IMS_TOKEN_PERSONAL_PROD }}" >> $GITHUB_OUTPUT
-            echo "client_id=${{ secrets.CLIENT_ID_PROD }}" >> $GITHUB_OUTPUT
-            echo "client_secret=${{ secrets.CLIENT_SECRET_PROD }}" >> $GITHUB_OUTPUT
+            echo "client_id=${{ secrets.CLIENTID_PROD }}" >> $GITHUB_OUTPUT
+            echo "client_secret=${{ secrets.CLIENTSECRET_PROD }}" >> $GITHUB_OUTPUT
             echo "ims_token_url=${{ vars.IMS_TOKEN_URL_PROD }}" >> $GITHUB_OUTPUT
             echo "connection_string=${{ secrets.AZURE_STORAGE_CONNECTION_STRING_PROD }}" >> $GITHUB_OUTPUT
           else
             echo "apim_endpoint=${{ vars.APIM_ENDPOINT_STAGE }}" >> $GITHUB_OUTPUT
             echo "function_endpoint=${{ vars.FUNCTION_ENDPOINT_STAGE }}" >> $GITHUB_OUTPUT
-            echo "ims_token=${{ secrets.IMS_TOKEN_PERSONAL_STAGE }}" >> $GITHUB_OUTPUT
-            echo "client_id=${{ secrets.CLIENT_ID_STAGE }}" >> $GITHUB_OUTPUT
-            echo "client_secret=${{ secrets.CLIENT_SECRET_STAGE }}" >> $GITHUB_OUTPUT
+            echo "client_id=${{ secrets.CLIENTID_STAGE }}" >> $GITHUB_OUTPUT
+            echo "client_secret=${{ secrets.CLIENTSECRET_STAGE }}" >> $GITHUB_OUTPUT
             echo "ims_token_url=${{ vars.IMS_TOKEN_URL_STAGE }}" >> $GITHUB_OUTPUT
             echo "connection_string=${{ secrets.AZURE_STORAGE_CONNECTION_STRING_STAGE }}" >> $GITHUB_OUTPUT
           fi
@@ -89,7 +86,6 @@ jobs:
           # Environment-specific configuration (set in previous step)
           APIM_ENDPOINT: ${{ steps.config.outputs.apim_endpoint }}
           FUNCTION_ENDPOINT: ${{ steps.config.outputs.function_endpoint }}
-          IMS_TOKEN: ${{ steps.config.outputs.ims_token }}
           IMS_CLIENT_ID: ${{ steps.config.outputs.client_id }}
           IMS_CLIENT_SECRET: ${{ steps.config.outputs.client_secret }}
           IMS_TOKEN_URL: ${{ steps.config.outputs.ims_token_url }}
