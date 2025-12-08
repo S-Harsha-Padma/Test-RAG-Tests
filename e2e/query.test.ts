@@ -31,10 +31,24 @@ describe('Query Endpoint E2E Tests', () => {
     try {
       VALID_IMS_TOKEN = await imsHelper.getToken();
       console.log('Valid IMS token obtained for testing');
+      // Warm-up request to handle Azure Function cold start
+      // This absorbs the cold start penalty so actual tests run against a warm function
+      if (VALID_IMS_TOKEN) {
+        console.log('Sending warm-up request to handle cold start...');
+        const startTime = Date.now();
+        try {
+          await makeQuery('warm-up', { token: VALID_IMS_TOKEN });
+          const duration = Date.now() - startTime;
+          console.log(`Warm-up completed in ${duration}ms - function is now warm`);
+        } catch (e) {
+          const duration = Date.now() - startTime;
+          console.log(`Warm-up request completed in ${duration}ms (response may have errored, but function is warm)`);
+        }
+      }
     } catch (error: any) {
       console.error('Failed to fetch IMS token:', error.message);
     }
-  }, 30000); // 30 second timeout for token fetch
+  }, 90000); // 90 second timeout for token fetch + warm-up
 
   // =========================================================================
   // AUTHENTICATION TESTS
@@ -80,7 +94,6 @@ describe('Query Endpoint E2E Tests', () => {
       console.log('Empty token rejected');
     });
   });
-  
 
   // =========================================================================
   // QUERY FUNCTIONALITY TESTS
@@ -112,11 +125,11 @@ describe('Query Endpoint E2E Tests', () => {
         expect(firstResult).toHaveProperty('metadata');
         expect(firstResult).toHaveProperty('score');
 
-        console.log(`Single word query returned ${data.results.length} results`);
+        console.log(`Valid query returned ${data.results.length} results`);
       } else {
         console.log('Quota exceeded, skipping result validation');
       }
-    });
+    }, 15000);
     test('should handle typo tolerance (evnts → events)', async () => {
       if (!VALID_IMS_TOKEN) {
         console.warn('Skipping: IMS_TOKEN not available');
@@ -221,4 +234,3 @@ describe('Query Endpoint E2E Tests', () => {
     });
   });
 });
-
