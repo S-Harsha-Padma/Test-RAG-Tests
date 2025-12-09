@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - check
+      - check1
 
 jobs:
   e2e-test:

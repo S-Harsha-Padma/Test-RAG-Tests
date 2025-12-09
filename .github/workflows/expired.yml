@@ -1,0 +1,28 @@
+name: Plant Expired Token Cache (TEST)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  plant-expired-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get cache date
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Create expired token cache file
+        run: |
+          echo "Creating expired token cache..."
+          echo '{
+            "access_token": "expired_test_token_12345",
+            "expires_at": 1000000000000
+          }' > .ims-token-dev-cache.json
+          cat .ims-token-dev-cache.json
+
+      - name: Save expired cache
+        uses: actions/cache/save@v4
+        with:
+          path: .ims-token-dev-cache.json
+          key: ims-token-dev-${{ steps.date.outputs.date }}
+
