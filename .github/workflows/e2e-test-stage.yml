@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - check
+    paths:
+      - 'e2e/**'
+      - 'utils/**'
 
 jobs:
   e2e-test:
@@ -12,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code-
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js
@@ -24,11 +27,15 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
+      - name: Get cache date
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
       - name: Restore IMS token cache
         uses: actions/cache/restore@v4
         with:
           path: .ims-token-dev-cache.json
-          key: ims-token-dev-${{ github.run_id }}
+          key: ims-token-dev-${{ steps.date.outputs.date }}
           restore-keys: |
             ims-token-dev-
 
@@ -51,4 +58,4 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .ims-token-dev-cache.json
-          key: ims-token-dev-${{ github.run_id }}
+          key: ims-token-dev-${{ steps.date.outputs.date }}
