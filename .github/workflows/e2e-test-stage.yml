@@ -1,4 +1,4 @@
-name: E2E Tests for Stage
+name: E2E Tests for Stage--
 
 on:
   workflow_dispatch:
