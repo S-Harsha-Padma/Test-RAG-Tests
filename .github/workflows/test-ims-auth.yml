@@ -3,7 +3,7 @@ name: Test IMS OAuth Authentication
 on:
   push:
     branches:
-      - check
+      - check2
 
 jobs:
   test-ims-auth:

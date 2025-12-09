@@ -1,8 +1,12 @@
 name: Keep Functions Warm (Stage)
 
+defaults:
+  run:
+    shell: bash
+
 on:
   schedule:
-    - cron: '*/2 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
