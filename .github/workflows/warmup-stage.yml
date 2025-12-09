@@ -1,0 +1,68 @@
+name: Keep Functions Warm (Stage)
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  warm-stage:
+    name: Warm Stage Function
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore cached IMS token
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: .ims-token-warm-stage-cache.json
+          key: ims-token-warm-stage-${{ github.repository }}-v1
+
+      - name: Get or use cached token
+        id: token
+        run: |
+          # Check if cached token exists and is valid
+          if [ -f ".ims-token-warm-stage-cache.json" ]; then
+            EXPIRES_AT=$(jq -r '.expires_at' .ims-token-warm-stage-cache.json 2>/dev/null || echo "0")
+            if [ "$EXPIRES_AT" -gt "$(date +%s)" ]; then
+              TOKEN=$(jq -r '.access_token' .ims-token-warm-stage-cache.json)
+              echo "access_token=$TOKEN" >> $GITHUB_OUTPUT
+              echo "Using cached token"
+              exit 0
+            fi
+          fi
+          
+          # Fetch fresh token
+          RESPONSE=$(curl -s -X POST "${{ vars.IMS_TOKEN_URL_STAGE }}" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "grant_type=authorization_code" \
+            -d "client_id=${{ secrets.CLIENTID_STAGE }}" \
+            -d "client_secret=${{ secrets.CLIENTSECRET_STAGE }}" \
+            -d "code=${{ secrets.AUTH_CODE_STAGE }}")
+          
+          TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+          EXPIRES_IN=$(echo "$RESPONSE" | jq -r '.expires_in // 86400')
+          
+          if [ "$TOKEN" == "null" ] || [ -z "$TOKEN" ]; then
+            echo "Failed to get token: $RESPONSE"
+            exit 1
+          fi
+          
+          # Cache token with 5 min buffer before expiry
+          EXPIRES_AT=$(( $(date +%s) + EXPIRES_IN - 300 ))
+          echo "{\"access_token\": \"$TOKEN\", \"expires_at\": $EXPIRES_AT}" > .ims-token-warm-stage-cache.json
+          
+          echo "access_token=$TOKEN" >> $GITHUB_OUTPUT
+          echo "Got fresh token"
+
+      - name: Warm Stage Function
+        run: |
+          START=$(date +%s%3N)
+          
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${{ vars.APIM_ENDPOINT_STAGE }}/api/query" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ steps.token.outputs.access_token }}" \
+            -d '{"query": "health", "count": 1}' \
+            --max-time 90)
+          
+          DURATION=$(( $(date +%s%3N) - START ))
+          echo "Status: $HTTP_CODE, Duration: ${DURATION}ms"
