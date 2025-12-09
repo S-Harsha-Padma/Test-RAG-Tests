@@ -34,10 +34,10 @@ jobs:
           # Fetch fresh token
           RESPONSE=$(curl -s -X POST "${{ vars.IMS_TOKEN_URL_STAGE }}" \
             -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "grant_type=authorization_code" \
+            -d "grant_type=client_credentials" \
             -d "client_id=${{ secrets.CLIENTID_STAGE }}" \
             -d "client_secret=${{ secrets.CLIENTSECRET_STAGE }}" \
-            -d "code=${{ secrets.AUTH_CODE_STAGE }}")
+            -d "scope=openid,AdobeID")
           
           TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
           EXPIRES_IN=$(echo "$RESPONSE" | jq -r '.expires_in // 86400')
