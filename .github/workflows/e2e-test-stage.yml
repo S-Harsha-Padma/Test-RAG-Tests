@@ -5,9 +5,6 @@ on:
   push:
     branches:
       - check
-    paths:
-      - 'e2e/**'
-      - 'utils/**'
 
 jobs:
   e2e-test:
@@ -28,27 +25,30 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Restore IMS token cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: .ims-token-dev-cache.json
-          # Static cache key - expires when token is invalid (checked by imsHelper.js)
-          # Change the version number (v1) to force cache invalidation if needed
-          key: ims-token-dev-${{ github.repository }}-v1
+          key: ims-token-dev-${{ github.run_id }}
           restore-keys: |
-            ims-token-dev-${{ github.repository }}-
+            ims-token-dev-
 
       - name: Run E2E Tests
         env:
           # IMS OAuth credentials
           IMS_CLIENT_ID: ${{ secrets.CLIENTID_STAGE }}
           IMS_CLIENT_SECRET: ${{ secrets.CLIENTSECRET_STAGE }}
-          IMS_TOKEN_URL: ${{ vars.IMS_TOKEN_URL_STAGE }} 
+          IMS_TOKEN_URL: ${{ vars.IMS_TOKEN_URL_STAGE }}
+          IMS_AUTH_CODE: ${{ secrets.AUTH_CODE_STAGE }} 
           # APIM endpoint
           APIM_ENDPOINT: ${{ vars.APIM_ENDPOINT_STAGE }} 
-          # CI flag to use OAuth instead of aio CLI (GITHUB_ACTIONS is set automatically by GitHub)
           CI: true
           CACHE_ENV: dev
         run: |
           echo "Running E2E tests..."
           npm run test:e2e --verbose
-
+      - name: Save IMS token cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .ims-token-dev-cache.json
+          key: ims-token-dev-${{ github.run_id }}
